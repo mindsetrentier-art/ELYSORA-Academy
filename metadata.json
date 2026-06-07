@@ -1,0 +1,12 @@
+{
+  "name": "ELYSORA Academy",
+  "description": "An AI-powered knowledge operating system and luxury learning academy for the HOTEL ELYSORA ecosystem.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

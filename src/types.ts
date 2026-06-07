@@ -68,7 +68,7 @@ export interface Quiz {
 export interface GalleryAsset {
   id: string;
   name: string;
-  category: 'architectural' | 'moodboard' | 'concept' | 'interior' | 'lighting';
+  category: 'architectural' | 'moodboard' | 'concept' | 'interior' | 'lighting' | 'operations' | 'finance' | 'staffing' | 'planning' | string;
   imageUrl: string;
   dimensions?: string;
   tags: string[];

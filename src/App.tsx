@@ -21,7 +21,15 @@ import {
   Clock, 
   Gauge, 
   AlertCircle,
-  TrendingUp
+  TrendingUp,
+  Save,
+  History,
+  Briefcase,
+  FolderOpen,
+  Calculator,
+  Percent,
+  RotateCcw,
+  Coins
 } from 'lucide-react';
 
 import {
@@ -70,15 +78,118 @@ import {
   INITIAL_NODES, 
   GRAPH_CONNECTIONS, 
   INITIAL_COURSES, 
+  INITIAL_COURSES_MGMT,
   INITIAL_GALLERY, 
+  INITIAL_GALLERY_MGMT,
   INITIAL_PROJECTS, 
   INITIAL_TASKS, 
   INITIAL_TRENDS 
 } from './mockData';
 
+import { i18n, Language, MOCK_DATA_TRANSLATIONS } from './i18n';
+
 export default function App() {
+  // Language & Translation States
+  const [lang, setLang] = useState<Language>('en');
+  const t = i18n[lang];
+
+  // Dynamic localization mapping helpers
+  const getLocalizedNode = (node: KnowledgeNode): KnowledgeNode => {
+    const tr = MOCK_DATA_TRANSLATIONS[node.id]?.[lang];
+    if (tr) {
+      return {
+        ...node,
+        name: tr.name || node.name,
+        category: tr.category || node.category,
+        description: tr.description || node.description,
+        content: tr.content || node.content
+      };
+    }
+    return node;
+  };
+
+  const getLocalizedCourse = (course: Course): Course => {
+    const tr = MOCK_DATA_TRANSLATIONS[course.id]?.[lang];
+    const localizedLessons = course.lessons.map(lesson => {
+      const lesTr = MOCK_DATA_TRANSLATIONS[lesson.id]?.[lang];
+      if (lesTr) {
+        return {
+          ...lesson,
+          title: lesTr.title || lesson.title,
+          content: lesTr.content || lesson.content,
+          quiz: lesson.quiz && lesTr.quiz ? {
+            ...lesson.quiz,
+            question: lesTr.quiz.question || lesson.quiz.question,
+            options: lesTr.quiz.options || lesson.quiz.options,
+            explanation: lesTr.quiz.explanation || lesson.quiz.explanation
+          } : lesson.quiz
+        };
+      }
+      return lesson;
+    });
+
+    if (tr) {
+      return {
+        ...course,
+        title: tr.title || course.title,
+        description: tr.description || course.description,
+        lessons: localizedLessons
+      };
+    }
+    return { ...course, lessons: localizedLessons };
+  };
+
+  const getLocalizedGalleryAsset = (asset: GalleryAsset): GalleryAsset => {
+    const tr = MOCK_DATA_TRANSLATIONS[asset.id]?.[lang];
+    if (tr) {
+      return {
+        ...asset,
+        name: tr.name || asset.name,
+        category: tr.category || asset.category,
+        tags: tr.tags || asset.tags
+      };
+    }
+    return asset;
+  };
+
+  const getLocalizedProject = (proj: Project): Project => {
+    const tr = MOCK_DATA_TRANSLATIONS[proj.id]?.[lang];
+    if (tr) {
+      return {
+        ...proj,
+        name: tr.name || proj.name,
+        description: tr.description || proj.description
+      };
+    }
+    return proj;
+  };
+
+  const getLocalizedTask = (task: Task): Task => {
+    const tr = MOCK_DATA_TRANSLATIONS[task.id]?.[lang];
+    if (tr) {
+      return {
+        ...task,
+        title: tr.title || task.title
+      };
+    }
+    return task;
+  };
+
+  const getLocalizedTrend = (trend: IdeaTrend): IdeaTrend => {
+    const tr = MOCK_DATA_TRANSLATIONS[trend.id]?.[lang];
+    if (tr) {
+      return {
+        ...trend,
+        title: tr.title || trend.title,
+        description: tr.description || trend.description,
+        simulatedScenario: tr.simulatedScenario || trend.simulatedScenario
+      };
+    }
+    return trend;
+  };
+
   // Navigation & Core States
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'knowledge' | 'academy' | 'gallery' | 'projects' | 'advisor' | 'future'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'knowledge' | 'academy' | 'academy_mgmt' | 'gallery' | 'gallery_mgmt' | 'projects' | 'advisor' | 'future'>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTime, setCurrentTime] = useState('');
 
@@ -88,7 +199,9 @@ export default function App() {
   const [selectedProject, setSelectedProject] = useState<Project>(INITIAL_PROJECTS[0]);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [courses, setCourses] = useState<Course[]>(INITIAL_COURSES);
+  const [coursesMgmt, setCoursesMgmt] = useState<Course[]>(INITIAL_COURSES_MGMT);
   const [gallery, setGallery] = useState<GalleryAsset[]>(INITIAL_GALLERY);
+  const [galleryMgmt, setGalleryMgmt] = useState<GalleryAsset[]>(INITIAL_GALLERY_MGMT);
   const [trends, setTrends] = useState<IdeaTrend[]>(INITIAL_TRENDS);
 
   // Active Interactive Selection States
@@ -98,6 +211,25 @@ export default function App() {
   const [quizAnswer, setQuizAnswer] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
   const [quizScore, setQuizScore] = useState<number>(0);
+
+  // Management interactive selection states
+  const [selectedCourseMgmt, setSelectedCourseMgmt] = useState<Course>(INITIAL_COURSES_MGMT[0]);
+  const [activeLessonMgmt, setActiveLessonMgmt] = useState<Lesson>(INITIAL_COURSES_MGMT[0].lessons[0]);
+  const [quizAnswerMgmt, setQuizAnswerMgmt] = useState<number | null>(null);
+  const [quizSubmittedMgmt, setQuizSubmittedMgmt] = useState<boolean>(false);
+  const [quizScoreMgmt, setQuizScoreMgmt] = useState<number>(0);
+  const [isDraggingMgmt, setIsDraggingMgmt] = useState(false);
+  const fileInputRefMgmt = useRef<HTMLInputElement>(null);
+
+  // Management asset detail modal & dynamic ROI calculator states
+  const [selectedMgmtAsset, setSelectedMgmtAsset] = useState<GalleryAsset | null>(null);
+  const [calcHotelPrice, setCalcHotelPrice] = useState<number>(2000000);
+  const [calcEquity, setCalcEquity] = useState<number>(600000);
+  const [calcInterestRate, setCalcInterestRate] = useState<number>(4.5);
+  const [calcTermYears, setCalcTermYears] = useState<number>(15);
+  const [calcOperatingCostsPercent, setCalcOperatingCostsPercent] = useState<number>(70);
+  const [calcMinTargetProfit, setCalcMinTargetProfit] = useState<number>(100000);
+  const [calcActiveTab, setCalcActiveTab] = useState<'calculator' | 'study'>('calculator');
 
   // AI Advisor Chat States
   const [chatInput, setChatInput] = useState('');
@@ -109,6 +241,23 @@ export default function App() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
+
+  // Update chat helper text dynamically when language changes
+  useEffect(() => {
+    const welcomeText = {
+      en: 'Good day. I am the ELYSORA Academy AI Advisor. I have mapped the topological and microclimatic criteria for our upcoming Swiss Alpine retreats. Ask me to compare design layouts, suggest materials, or summarize development folders.',
+      fr: 'Bonjour. Je suis le conseiller IA de l\'Académie ELYSORA. J\'ai cartographié les critères topologiques et microclimatiques de nos prochains retraites alpines suisses. Demandez-moi de comparer des configurations, de suggérer des matériaux ou de synthétiser des dossiers de développement.',
+      zh: '您好。我是 ELYSORA 酒店学院 AI 创意顾问。我已经为您规划了即将建设的瑞士阿尔卑斯山奢华度假村的地理与微气候设计特征。欢迎请我比对空间格局、推荐环保材质，或总结工程开发案卷。'
+    };
+    
+    setChatHistory(prev => prev.map(msg => {
+      if (msg.id === 'welcome-msg') {
+        return { ...msg, text: welcomeText[lang] };
+      }
+      return msg;
+    }));
+  }, [lang]);
+
   const [isAIThinking, setIsAIThinking] = useState(false);
 
   // Comparison Mode state for AI Advisor
@@ -122,6 +271,23 @@ export default function App() {
   const [newIdeaTitle, setNewIdeaTitle] = useState('');
   const [newIdeaDesc, setNewIdeaDesc] = useState('');
   const [newIdeaCategory, setNewIdeaCategory] = useState('Architecture');
+
+  // AI Advisor Draft Logs State
+  const [draftTitle, setDraftTitle] = useState('');
+  const [loadedDraftId, setLoadedDraftId] = useState<string | null>(null);
+  const [draftLogs, setDraftLogs] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('elysora_consultation_drafts');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  // Sync draftLogs to local storage
+  useEffect(() => {
+    localStorage.setItem('elysora_consultation_drafts', JSON.stringify(draftLogs));
+  }, [draftLogs]);
   
   // Drag & drop file status
   const [isDragging, setIsDragging] = useState(false);
@@ -144,8 +310,25 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Localized dynamic datasets
+  const localizedNodes = nodes.map(getLocalizedNode);
+  const localizedCourses = courses.map(getLocalizedCourse);
+  const localizedCoursesMgmt = coursesMgmt.map(getLocalizedCourse);
+  const localizedGallery = gallery.map(getLocalizedGalleryAsset);
+  const localizedGalleryMgmt = galleryMgmt.map(getLocalizedGalleryAsset);
+  const localizedProjects = projects.map(getLocalizedProject);
+  const localizedTrends = trends.map(getLocalizedTrend);
+
+  // Localized Active items
+  const localizedSelectedNode = selectedNode ? getLocalizedNode(selectedNode) : null;
+  const localizedSelectedCourse = getLocalizedCourse(selectedCourse);
+  const localizedSelectedCourseMgmt = getLocalizedCourse(selectedCourseMgmt);
+  const localizedActiveLesson = localizedSelectedCourse.lessons.find(l => l.id === activeLesson.id) || activeLesson;
+  const localizedActiveLessonMgmt = localizedSelectedCourseMgmt.lessons.find(l => l.id === activeLessonMgmt.id) || activeLessonMgmt;
+  const localizedSelectedProject = getLocalizedProject(selectedProject);
+
   // Sync active project selection in task board
-  const activeProjectTasks = tasks.filter(t => t.projectId === selectedProject.id);
+  const activeProjectTasks = tasks.filter(t => t.projectId === selectedProject.id).map(getLocalizedTask);
 
   // AI Advisor query endpoint function
   const sendAIMessage = async (customPrompt?: string) => {
@@ -200,6 +383,96 @@ export default function App() {
     } finally {
       setIsAIThinking(false);
     }
+  };
+
+  // Handle saving current conversation
+  const handleSaveDraft = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (chatHistory.length === 0) return;
+
+    // Use input title or fallback
+    const titleToSave = draftTitle.trim() || `${t.unnamedDraft} #${draftLogs.length + 1}`;
+    
+    // Check if we are overwriting an existing loaded draft or saving a new one
+    if (loadedDraftId) {
+      // Overwrite / Update the existing draft
+      setDraftLogs(prev => prev.map(draft => {
+        if (draft.id === loadedDraftId) {
+          return {
+            ...draft,
+            title: titleToSave,
+            messages: [...chatHistory],
+            timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          };
+        }
+        return draft;
+      }));
+      setDraftTitle('');
+      // Show checkmark / system notification
+      const sysLogEntry: Message = {
+        id: `sys-log-${Date.now()}`,
+        sender: 'system',
+        text: `Draft "${titleToSave}" updated successfully to workspace storage.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setChatHistory(prev => [...prev.filter(m => m.id !== 'sys-log-last'), { ...sysLogEntry, id: 'sys-log-last' }]);
+    } else {
+      // Save as brand new draft
+      const newDraft = {
+        id: `draft-${Date.now()}`,
+        title: titleToSave,
+        messages: [...chatHistory],
+        timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      };
+      
+      setDraftLogs(prev => [newDraft, ...prev]);
+      setLoadedDraftId(newDraft.id);
+      setDraftTitle('');
+      
+      const sysLogEntry: Message = {
+        id: `sys-log-${Date.now()}`,
+        sender: 'system',
+        text: `Draft "${titleToSave}" successfully persistent in workspace database.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setChatHistory(prev => [...prev.filter(m => m.id !== 'sys-log-last'), { ...sysLogEntry, id: 'sys-log-last' }]);
+    }
+  };
+
+  // Handle loading select draft
+  const handleLoadDraft = (draft: any) => {
+    setChatHistory(draft.messages);
+    setLoadedDraftId(draft.id);
+    setDraftTitle(draft.title);
+  };
+
+  // Handle deleting a draft
+  const handleDeleteDraft = (draftId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDraftLogs(prev => prev.filter(d => d.id !== draftId));
+    if (loadedDraftId === draftId) {
+      setLoadedDraftId(null);
+      setDraftTitle('');
+    }
+  };
+
+  // Create new active chat (reset current chat and unselect any draft)
+  const handleNewChat = () => {
+    const welcomeText = {
+      en: 'Good day. I am the ELYSORA Academy AI Advisor. I have mapped the topological and microclimatic criteria for our upcoming Swiss Alpine retreats. Ask me to compare design layouts, suggest materials, or summarize development folders.',
+      fr: 'Bonjour. Je suis le conseiller IA de l\'Académie ELYSORA. J\'ai cartographié les critères topologiques et microclimatiques de nos prochains retraites alpines suisses. Demandez-moi de comparer des configurations, de suggérer des matériaux ou de synthétiser des dossiers de développement.',
+      zh: '您好。我是 ELYSORA 酒店学院 AI 创意顾问。我已经为您规划了即将建设的瑞士阿尔卑斯山奢华度假村的地理与微气候设计特征。欢迎请我比对空间格局、推荐环保材质，或总结工程开发案卷。'
+    };
+    setChatHistory([
+      {
+        id: 'welcome-msg',
+        sender: 'assistant',
+        text: welcomeText[lang],
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
+    setLoadedDraftId(null);
+    setDraftTitle('');
   };
 
   // Run comparative layout report directly with AI
@@ -411,6 +684,90 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
     setChatHistory(prev => [...prev, uploadNotice]);
   };
 
+  // Management quiz handlers
+  const handleQuizAnswerMgmt = (optionIdx: number) => {
+    if (quizSubmittedMgmt) return;
+    setQuizAnswerMgmt(optionIdx);
+  };
+
+  const submitQuizMgmt = () => {
+    if (quizAnswerMgmt === null || !activeLessonMgmt.quiz) return;
+    setQuizSubmittedMgmt(true);
+    if (quizAnswerMgmt === activeLessonMgmt.quiz.correctAnswer) {
+      setQuizScoreMgmt(prev => prev + 1);
+      // Boost course's progress state slightly as reward
+      setCoursesMgmt(prev => prev.map(c => {
+        if (c.id === selectedCourseMgmt.id) {
+          const newProg = Math.min(c.progress + 15, 100);
+          return { ...c, progress: newProg };
+        }
+        return c;
+      }));
+    }
+  };
+
+  const nextLessonMgmt = () => {
+    setQuizAnswerMgmt(null);
+    setQuizSubmittedMgmt(false);
+    const lessonIdx = selectedCourseMgmt.lessons.findIndex(l => l.id === activeLessonMgmt.id);
+    if (lessonIdx !== -1 && lessonIdx < selectedCourseMgmt.lessons.length - 1) {
+      setActiveLessonMgmt(selectedCourseMgmt.lessons[lessonIdx + 1]);
+    }
+  };
+
+  // Management drag & drop file upload simulators
+  const handleDragOverMgmt = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingMgmt(true);
+  };
+
+  const handleDragLeaveMgmt = () => {
+    setIsDraggingMgmt(false);
+  };
+
+  const handleDropMgmt = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingMgmt(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      simulateFileUploadMgmt(e.dataTransfer.files[0].name);
+    }
+  };
+
+  const handleFileSelectMgmt = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      simulateFileUploadMgmt(e.target.files[0].name);
+    }
+  };
+
+  const simulateFileUploadMgmt = (fileName: string) => {
+    const isDoc = fileName.endsWith('.pdf') || fileName.endsWith('.xlsx') || fileName.endsWith('.dwg') || fileName.endsWith('.xls') || fileName.endsWith('.csv') || fileName.endsWith('.doc') || fileName.endsWith('.docx');
+    const displayCategory = isDoc ? 'operations' : 'planning';
+    const tagList = isDoc ? ['Document', 'Operations', 'Finance'] : ['Image', 'Inspiration', 'Concept'];
+    const imageUrl = isDoc 
+      ? 'https://images.unsplash.com/photo-1450133064473-71024230f91b?q=80&w=600&auto=format&fit=crop'
+      : 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=600&auto=format&fit=crop';
+
+    const newAsset: GalleryAsset = {
+      id: `gal-mgmt-${Date.now()}`,
+      name: fileName.replace(/\.[^/.]+$/, ""), // remove file extension
+      category: displayCategory,
+      imageUrl: imageUrl,
+      dimensions: 'Bespoke Asset',
+      tags: ['Uploaded', 'User Concept', ...tagList]
+    };
+
+    setGalleryMgmt(prev => [newAsset, ...prev]);
+
+    // Send instant system message in chat logs regarding the uploaded management resource
+    const uploadNotice: Message = {
+      id: `notice-mgmt-${Date.now()}`,
+      sender: 'system',
+      text: `Successfully registered management concept resource: "${fileName}". The file was routed to the operations cluster & analyzed by Director AI.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setChatHistory(prev => [...prev, uploadNotice]);
+  };
+
   // Simple local node tag creation helper
   const [newNodeName, setNewNodeName] = useState('');
   const [newNodeDesc, setNewNodeDesc] = useState('');
@@ -439,26 +796,26 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
   };
 
   // Searching filter matching custom nodes, courses, gallery resources
-  const filteredNodes = nodes.filter(n => 
+  const filteredNodes = localizedNodes.filter(n => 
     n.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     n.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Generate historical completion tracking data over a 6-month period for courses in the academy
   const getTrendsData = () => {
-    const activeBlueprints = courses.map(c => ({
+    const activeBlueprints = localizedCourses.map(c => ({
       id: c.id,
       title: c.title,
       currentProgress: c.progress
     }));
 
     const months = [
-      { name: 'Jan', scale: 0.20 },
-      { name: 'Feb', scale: 0.40 },
-      { name: 'Mar', scale: 0.60 },
-      { name: 'Apr', scale: 0.75 },
-      { name: 'May', scale: 0.88 },
-      { name: 'Jun', scale: 1.00 }
+      { name: lang === 'zh' ? '一月' : lang === 'fr' ? 'Janv' : 'Jan', scale: 0.20 },
+      { name: lang === 'zh' ? '二月' : lang === 'fr' ? 'Févr' : 'Feb', scale: 0.40 },
+      { name: lang === 'zh' ? '三月' : lang === 'fr' ? 'Mars' : 'Mar', scale: 0.60 },
+      { name: lang === 'zh' ? '四月' : lang === 'fr' ? 'Avri' : 'Apr', scale: 0.75 },
+      { name: lang === 'zh' ? '五月' : lang === 'fr' ? 'Mai' : 'May', scale: 0.88 },
+      { name: lang === 'zh' ? '六月' : lang === 'fr' ? 'Juin' : 'Jun', scale: 1.00 }
     ];
 
     return months.map(m => {
@@ -503,7 +860,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             }`}
           >
             <Gauge className="w-4 h-4 text-[#d4af37]" />
-            <span className="text-sm">Dashboard</span>
+            <span className="text-sm">{t.dashboard}</span>
           </button>
 
           {/* Knowledge Graph / Base */}
@@ -520,7 +877,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             }`}
           >
             <Map className="w-4 h-4 text-[#d4af37]" />
-            <span className="text-sm">Knowledge Graph</span>
+            <span className="text-sm">{t.knowledge}</span>
           </button>
 
           {/* Learning Academy */}
@@ -534,7 +891,27 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             }`}
           >
             <Award className="w-4 h-4 text-[#d4af37]" />
-            <span className="text-sm">Curated Academy</span>
+            <span className="text-sm">{t.academy}</span>
+          </button>
+
+          {/* Management Academy */}
+          <button 
+            id="nav-btn-academy-mgmt"
+            onClick={() => {
+              setActiveTab('academy_mgmt');
+              if (coursesMgmt.length > 0 && !selectedCourseMgmt) {
+                setSelectedCourseMgmt(coursesMgmt[0]);
+                setActiveLessonMgmt(coursesMgmt[0].lessons[0]);
+              }
+            }}
+            className={`w-full text-left flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+              activeTab === 'academy_mgmt' 
+                ? 'bg-[#d4af37]/10 text-[#d4af37] border-l-2 border-[#d4af37] font-medium' 
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Briefcase className="w-4 h-4 text-[#d4af37]" />
+            <span className="text-sm">{t.academy_mgmt}</span>
           </button>
 
           {/* Design Gallery */}
@@ -548,7 +925,21 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             }`}
           >
             <ImageIcon className="w-4 h-4 text-[#d4af37]" />
-            <span className="text-sm">Design Gallery</span>
+            <span className="text-sm">{t.gallery}</span>
+          </button>
+
+          {/* Management Gallery */}
+          <button 
+            id="nav-btn-gallery-mgmt"
+            onClick={() => setActiveTab('gallery_mgmt')}
+            className={`w-full text-left flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+              activeTab === 'gallery_mgmt' 
+                ? 'bg-[#d4af37]/10 text-[#d4af37] border-l-2 border-[#d4af37] font-medium' 
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <FolderOpen className="w-4 h-4 text-[#d4af37]" />
+            <span className="text-sm">{t.gallery_mgmt}</span>
           </button>
 
           {/* Hotel Projects */}
@@ -562,7 +953,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             }`}
           >
             <Building className="w-4 h-4 text-[#d4af37]" />
-            <span className="text-sm">Hotel Projects</span>
+            <span className="text-sm">{t.projects}</span>
           </button>
 
           {/* AI Advisor Lab */}
@@ -576,7 +967,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             }`}
           >
             <Bot className="w-4 h-4 text-[#d4af37]" />
-            <span className="text-sm">AI Advisor Lab</span>
+            <span className="text-sm">{t.advisor}</span>
           </button>
 
           {/* Future Innovation Lab */}
@@ -590,16 +981,16 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             }`}
           >
             <Lightbulb className="w-4 h-4 text-[#d4af37]" />
-            <span className="text-sm">Future Lab</span>
+            <span className="text-sm">{t.future}</span>
           </button>
         </nav>
 
         {/* Sidebar Active Session Status (Artistic Flair Spec) */}
         <div className="p-6 mt-auto">
-          <div className="bg-[#064e3b] p-4 rounded-xl border border-[#d4af37]/30">
-            <div className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-1">Active AI Broker</div>
-            <div className="text-white font-serif text-sm flex items-center gap-1.5 font-medium">
-              <Sparkles className="w-3.5 h-3.5 text-[#d4af37] animate-pulse-slow" />
+          <div className="bg-[#064e3b] p-4 rounded-xl border border-[#d4af37]/30 font-sans">
+            <div className="text-[10px] uppercase tracking-widest text-[#d4af37] mb-1">{t.activeBroker}</div>
+            <div className="text-white font-serif text-sm flex items-center gap-1.5 font-medium animate-pulse">
+              <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
               Gemini 2.5 Flash
             </div>
             <div className="mt-2 h-1 bg-white/10 rounded-full overflow-hidden">
@@ -614,24 +1005,49 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
         
         {/* HEADER BAR (Artistic Flair spec: Height 20, white background, user capsule EA) */}
         <header className="h-20 border-b border-[#1a1a1a]/5 px-8 flex items-center justify-between bg-white/50 backdrop-blur-md sticky top-0 z-40">
-          <div className="flex items-center flex-1 max-w-md">
+          <div className="flex items-center flex-1 max-w-sm mr-4">
             <Search className="w-4 h-4 text-black/30" />
             <input 
               id="search-input"
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Knowledge Graph and Courses..." 
+              placeholder={t.searchPlaceholder} 
               className="ml-3 bg-transparent outline-none w-full text-sm placeholder:text-black/30 decoration-none"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-xs text-black/40 hover:text-black hover:underline ml-2">Clear</button>
+              <button onClick={() => setSearchQuery('')} className="text-xs text-black/40 hover:text-black hover:underline ml-2">{t.clear}</button>
             )}
           </div>
           <div className="flex items-center space-x-6 text-sm font-medium">
-            <span className="text-[#064e3b] italic font-serif text-lg hidden sm:inline">Villas & Spa Project</span>
+            {/* Language Selector */}
+            <div id="language-switcher" className="flex items-center gap-1 bg-[#1a1a1a]/5 p-1 rounded-xl border border-black/5">
+              <button 
+                id="lang-en"
+                onClick={() => setLang('en')} 
+                className={`px-3 py-1 text-xs rounded-lg font-mono transition-all flex items-center gap-1 ${lang === 'en' ? 'bg-[#1a1a1a] text-[#d4af37] font-semibold shadow-sm' : 'text-black/50 hover:text-black hover:bg-black/5'}`}
+              >
+                <span>🇬🇧</span> <span className="hidden sm:inline">EN</span>
+              </button>
+              <button 
+                id="lang-fr"
+                onClick={() => setLang('fr')} 
+                className={`px-3 py-1 text-xs rounded-lg font-mono transition-all flex items-center gap-1 ${lang === 'fr' ? 'bg-[#1a1a1a] text-[#d4af37] font-semibold shadow-sm' : 'text-black/50 hover:text-black hover:bg-black/5'}`}
+              >
+                <span>🇫🇷</span> <span className="hidden sm:inline">FR</span>
+              </button>
+              <button 
+                id="lang-zh"
+                onClick={() => setLang('zh')} 
+                className={`px-3 py-1 text-xs rounded-lg font-mono transition-all flex items-center gap-1 ${lang === 'zh' ? 'bg-[#1a1a1a] text-[#d4af37] font-semibold shadow-sm' : 'text-black/50 hover:text-black hover:bg-black/5'}`}
+              >
+                <span>🇨🇳</span> <span className="hidden sm:inline">中文</span>
+              </button>
+            </div>
+            
+            <span className="text-[#064e3b] italic font-serif text-lg hidden md:inline">{t.projectTitle}</span>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-black/60 font-medium">Director Workspace</span>
+              <span className="text-xs text-black/60 font-medium hidden sm:inline">{t.directorWorkspace}</span>
               <div id="user-badge" className="w-10 h-10 rounded-full bg-[#d4af37] flex items-center justify-center text-[#1a1a1a] font-serif shadow-lg font-bold border border-[#d4af37]">
                 EA
               </div>
@@ -646,12 +1062,12 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 border-b border-[#1a1a1a]/5 pb-6">
             <div>
               <h1 className="text-4xl sm:text-5xl font-serif leading-none text-[#1a1a1a]">
-                Welcome, <span className="italic">Director</span>
+                {t.welcome} <span className="italic">{t.director}</span>
               </h1>
-              <p className="text-xs tracking-wide text-black/50 mt-2 font-mono uppercase">HOTEL ELYSORA ACADEMY KNOWLEDGE CORE</p>
+              <p className="text-xs tracking-wide text-black/50 mt-2 font-mono uppercase">{t.subWelcome}</p>
             </div>
             <div className="text-left sm:text-right">
-              <div className="text-[10px] tracking-widest uppercase opacity-40 font-mono">Elysora Local Time</div>
+              <div className="text-[10px] tracking-widest uppercase opacity-40 font-mono">{t.localTime}</div>
               <div id="dynamic-clock" className="text-xl font-light tracking-tighter text-[#1a1a1a] font-mono">
                 {currentTime || '04:27 PM — 24°C'}
               </div>
@@ -675,8 +1091,8 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                     <Building className="w-5 h-5" />
                   </div>
                   <div className="space-y-1 mt-6">
-                    <div className="text-3xl font-serif text-[#1a1a1a]">{projects.length} Active Hotspots</div>
-                    <div className="text-xs uppercase tracking-widest opacity-40 font-mono">Villas, Spas & Gardens</div>
+                    <div className="text-3xl font-serif text-[#1a1a1a]">{projects.length} {t.activeHotspots}</div>
+                    <div className="text-xs uppercase tracking-widest opacity-40 font-mono">{t.villasSpasGardens}</div>
                   </div>
                 </div>
 
@@ -690,8 +1106,8 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                     <Award className="w-5 h-5" />
                   </div>
                   <div className="space-y-1 mt-6">
-                    <div className="text-3xl font-serif text-[#1a1a1a]">84% Completed</div>
-                    <div className="text-xs uppercase tracking-widest opacity-40 font-mono">Strategic Development Plan</div>
+                    <div className="text-3xl font-serif text-[#1a1a1a]">84% {t.completedLabel}</div>
+                    <div className="text-xs uppercase tracking-widest opacity-40 font-mono">{t.strategicPlan}</div>
                   </div>
                 </div>
 
@@ -702,15 +1118,15 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                   className="bg-[#1a1a1a] rounded-3xl p-6 shadow-xl flex flex-col justify-between text-white hover:border-[#d4af37]/40 border border-transparent transition-all cursor-pointer group"
                 >
                   <div className="w-10 h-10 border border-white/20 rounded-full flex items-center justify-center">
-                    <div className="w-2.5 h-2.5 bg-[#d4af37] rounded-full animate-pulse"></div>
+                     <div className="w-2.5 h-2.5 bg-[#d4af37] rounded-full animate-pulse"></div>
                   </div>
                   <div className="space-y-2 mt-6">
                     <div className="text-xs uppercase tracking-widest text-[#d4af37] font-mono flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5" />
-                      Advisor Recommendation
+                      {t.advisorRecommendation}
                     </div>
                     <div className="text-xs opacity-90 leading-relaxed font-sans">
-                      Dolomite stone retains hydration cold circuits 14% longer than synthetic slate. Let's design!
+                      {t.advisorRecText}
                     </div>
                   </div>
                 </div>
@@ -729,18 +1145,18 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                       <Award className="w-48 h-48" />
                     </div>
                     <div className="relative z-10">
-                      <div className="text-xs uppercase tracking-widest text-[#d4af37] font-mono mb-2">Primary Curriculum</div>
+                      <div className="text-xs uppercase tracking-widest text-[#d4af37] font-mono mb-2">{t.primaryCurriculum}</div>
                       <h3 className="font-serif text-2xl sm:text-3xl max-w-xl font-semibold leading-snug">
                         {selectedCourse.title}
                       </h3>
                       <p className="text-white/70 text-xs mt-2 max-w-lg font-sans">
-                        Instructor: {selectedCourse.instructor} • Level: {selectedCourse.level}
+                        {t.instructor}: {selectedCourse.instructor} • Level: {selectedCourse.level}
                       </p>
                     </div>
 
                     <div className="mt-6 space-y-3 relative z-10">
                       <div className="flex justify-between items-center text-xs text-white/80">
-                        <span>Curriculum Progress</span>
+                        <span>{t.currep}</span>
                         <span className="font-mono">{selectedCourse.progress}%</span>
                       </div>
                       <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
@@ -751,7 +1167,77 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                           onClick={() => setActiveTab('academy')}
                           className="px-5 py-2.5 bg-[#d4af37] text-[#1a1a1a] rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all flex items-center gap-1.5"
                         >
-                          Access Modules <ChevronRight className="w-3.5 h-3.5" />
+                          {t.accessModules} <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Management & Operations Row (Académie de gestion & Galerie de gestion) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                    {/* Management Academy - Académie de gestion */}
+                    <div id="mgmt-academy-dashboard-card" className="bg-[#1e293b] text-white rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[220px] shadow-sm border border-slate-700/30 hover:border-[#d4af37]/40 transition-all group">
+                      <div className="absolute top-0 right-0 p-6 opacity-5">
+                        <Briefcase className="w-36 h-36" />
+                      </div>
+                      <div className="relative z-10">
+                        <div className="text-xs uppercase tracking-widest text-[#d4af37] font-mono mb-2">{lang === 'zh' ? '管理学院特训' : lang === 'fr' ? 'Académie de gestion' : 'Management Curriculum'}</div>
+                        <h3 className="font-serif text-xl font-semibold leading-snug">
+                          {selectedCourseMgmt.title}
+                        </h3>
+                        <p className="text-white/60 text-[11px] mt-1.5 font-sans">
+                          {t.instructor}: {selectedCourseMgmt.instructor} • Level: {selectedCourseMgmt.level}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 space-y-2 relative z-10">
+                        <div className="flex justify-between items-center text-[11px] text-white/80">
+                          <span>{t.currep}</span>
+                          <span className="font-mono">{selectedCourseMgmt.progress}%</span>
+                        </div>
+                        <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#d4af37]" style={{ width: `${selectedCourseMgmt.progress}%` }}></div>
+                        </div>
+                        <div className="pt-2 flex justify-end">
+                          <button 
+                            onClick={() => setActiveTab('academy_mgmt')}
+                            className="px-4 py-2 bg-[#d4af37] text-[#1a1a1a] rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all flex items-center gap-1"
+                          >
+                            {lang === 'zh' ? '开启管理舱' : lang === 'fr' ? 'Accéder aux cours' : 'Access Modules'} <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Management Gallery - Galerie de gestion */}
+                    <div id="mgmt-gallery-dashboard-card" className="bg-white border border-[#1a1a1a]/5 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[220px] hover:border-[#d4af37]/50 transition-all group">
+                      <div>
+                        <div className="flex justify-between items-start">
+                          <div className="text-xs uppercase tracking-widest text-[#d4af37] font-mono mb-1">{lang === 'zh' ? '管理画廊' : lang === 'fr' ? 'Galerie de gestion' : 'Management Gallery'}</div>
+                          <span className="text-[10px] font-mono text-black/40 bg-black/5 px-2 py-0.5 rounded-full">{galleryMgmt.length} {lang === 'zh' ? '个资产' : lang === 'fr' ? 'actifs' : 'assets'}</span>
+                        </div>
+                        <h3 className="font-serif text-lg font-medium text-[#1a1a1a] leading-tight mt-1">
+                          {lang === 'zh' ? '营运与合规灵感库' : lang === 'fr' ? 'Aperçu des Actifs de Gestion' : 'Operations & Compliance Hub'}
+                        </h3>
+                        
+                        {/* Thumbnail Grid */}
+                        <div className="grid grid-cols-4 gap-2 mt-3">
+                          {galleryMgmt.slice(0, 4).map(asset => (
+                            <div key={asset.id} className="h-10 rounded-lg overflow-hidden bg-black/10 relative group-hover:scale-105 transition-transform duration-300">
+                              <img src={asset.imageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-2 border-t border-black/5 flex justify-between items-center">
+                        <span className="text-[10px] font-mono text-black/45">{lang === 'zh' ? '可上传管理文档/照片' : lang === 'fr' ? 'Soutient docs & photos' : 'Supports Doc/Photo uploads'}</span>
+                        <button 
+                          onClick={() => setActiveTab('gallery_mgmt')}
+                          className="px-3 py-1.5 bg-[#fcfaf5] border border-black/10 hover:border-[#d4af37] text-black rounded-lg text-xs font-serif font-medium transition-all flex items-center gap-1"
+                        >
+                          {lang === 'zh' ? '进入画廊' : lang === 'fr' ? 'Ouvrir la galerie' : 'Open Gallery'} <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -763,10 +1249,10 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                       <div>
                         <h3 className="font-serif text-xl italic text-[#1a1a1a] flex items-center gap-2">
                           <TrendingUp className="w-4.5 h-4.5 text-[#d4af37]" />
-                          Academy Completion Trends
+                          {t.academyTrends}
                         </h3>
                         <p className="text-xs text-black/50 mt-1">
-                          Consolidated curricula learning curves and masterclass progressions over the last 6 months.
+                          {t.academyTrendsSub}
                         </p>
                       </div>
                       <div className="flex gap-4 text-[10px] font-mono">
@@ -780,7 +1266,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="w-2.5 h-2.5 rounded bg-black border-dashed border border-[#d4af37]" />
-                          <span className="text-black/60">Cumulative</span>
+                          <span className="text-black/60">{t.cumulative}</span>
                         </div>
                       </div>
                     </div>
@@ -808,7 +1294,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                             tickFormatter={(v) => `${v}%`}
                           />
                           <Tooltip content={<CustomTooltip />} />
-                          {courses.map((c, index) => (
+                          {localizedCourses.map((c, index) => (
                             <Line
                               key={c.id}
                               type="monotone"
@@ -822,7 +1308,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                           ))}
                           <Line
                             type="monotone"
-                            name="Cumulative Progress"
+                            name={lang === 'zh' ? '累计进度' : lang === 'fr' ? 'Progrès cumulé' : 'Cumulative Progress'}
                             dataKey="Cumulative Progress"
                             stroke="#1a1a1a"
                             strokeWidth={2.5}
@@ -839,27 +1325,27 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                   <div className="bg-white rounded-3xl p-6 border border-[#1a1a1a]/5 shadow-sm">
                     <div className="flex justify-between items-center mb-6">
                       <div>
-                        <h3 className="font-serif text-xl italic text-brand-dark">Interactive Knowledge Preview</h3>
-                        <p className="text-xs text-black/50">Visualize biological design correlations in real-time click pathways.</p>
+                        <h3 className="font-serif text-xl italic text-brand-dark">{t.interactivePreview}</h3>
+                        <p className="text-xs text-black/50">{t.visualizeIntel}</p>
                       </div>
                       <button 
                         onClick={() => setActiveTab('knowledge')}
                         className="text-xs text-[#064e3b] font-medium hover:underline flex items-center gap-1"
                       >
-                        Launch Graph View <ArrowRight className="w-3.5 h-3.5" />
+                        {t.launchGraph} <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
                     <div className="h-44 bg-[#fcfaf5]/50 border border-black/5 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
                       {/* Interactive concept bubble simulation */}
                       <div className="absolute top-6 left-12 p-2.5 bg-[#1a1a1a] text-white rounded-xl text-xs font-serif shadow-md border border-[#d4af37]/20">
-                        Spa Materials
+                        {lang === 'zh' ? '水疗材质' : lang === 'fr' ? 'Matériaux de Spa' : 'Spa Materials'}
                       </div>
                       <div className="absolute bottom-6 right-12 p-2.5 bg-[#d4af37]/20 border border-[#d4af37]/40 text-black rounded-xl text-xs font-serif shadow-md">
-                        Thermal Dynamics
+                        {lang === 'zh' ? '热力学系统' : lang === 'fr' ? 'Thermodynamique' : 'Thermal Dynamics'}
                       </div>
                       <div className="absolute top-1/2 left-1/3 p-3 bg-[#064e3b] text-white rounded-xl text-xs font-serif shadow-md animate-pulse">
-                        Biophilic Contours
+                        {lang === 'zh' ? '生态亲生物形态' : lang === 'fr' ? 'Contours Biophiliques' : 'Biophilic Contours'}
                       </div>
                       {/* Connection lines using SVG */}
                       <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" xmlns="http://www.w3.org/2000/svg">
@@ -867,7 +1353,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                         <line x1="160" y1="110" x2="300" y2="140" stroke="black" strokeWidth="1" strokeDasharray="3,3" />
                         <line x1="80" y1="35" x2="300" y2="140" stroke="black" strokeWidth="1" />
                       </svg>
-                      <span className="text-[11px] text-black/30 font-mono tracking-widest uppercase relative z-10 p-2 bg-white/80 rounded-full border border-black/5">4 Active Topological Nodes linked</span>
+                      <span className="text-[11px] text-black/30 font-mono tracking-widest uppercase relative z-10 p-2 bg-white/80 rounded-full border border-black/5">{t.activeNodesLinked}</span>
                     </div>
                   </div>
 
@@ -878,7 +1364,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                   
                   {/* Curated Pre-Compiled Action Recommendations */}
                   <div className="bg-white rounded-3xl p-6 border border-[#1a1a1a]/5 shadow-sm space-y-4">
-                    <h4 className="text-[10px] tracking-widest uppercase text-black/40 font-mono font-bold">Preset Enquiries</h4>
+                    <h4 className="text-[10px] tracking-widest uppercase text-black/40 font-mono font-bold">{t.presetEnquiries}</h4>
                     <div className="space-y-2.5 text-xs">
                       
                       <button 
@@ -888,7 +1374,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                         }}
                         className="w-full text-left p-3 rounded-xl bg-[#fcfaf5] border border-black/5 hover:border-[#d4af37] hover:bg-white transition-all group flex justify-between items-center"
                       >
-                        <span className="text-[#1a1a1a] font-medium group-hover:text-[#064e3b]">Compare Spa layouts</span>
+                        <span className="text-[#1a1a1a] font-medium group-hover:text-[#064e3b]">{t.compareSpa}</span>
                         <ChevronRight className="w-3.5 h-3.5 text-black/30 group-hover:text-black" />
                       </button>
 
@@ -899,7 +1385,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                         }}
                         className="w-full text-left p-3 rounded-xl bg-[#fcfaf5] border border-black/5 hover:border-[#d4af37] hover:bg-white transition-all group flex justify-between items-center"
                       >
-                        <span className="text-[#1a1a1a] font-medium group-hover:text-[#064e3b]">Dolomite Thermal analytics</span>
+                        <span className="text-[#1a1a1a] font-medium group-hover:text-[#064e3b]">{t.dolomiteThermal}</span>
                         <ChevronRight className="w-3.5 h-3.5 text-black/30 group-hover:text-black" />
                       </button>
 
@@ -910,7 +1396,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                         }}
                         className="w-full text-left p-3 rounded-xl bg-[#fcfaf5] border border-black/5 hover:border-[#d4af37] hover:bg-white transition-all group flex justify-between items-center"
                       >
-                        <span className="text-[#1a1a1a] font-medium group-hover:text-[#064e3b]">Botanical smart sensors index</span>
+                        <span className="text-[#1a1a1a] font-medium group-hover:text-[#064e3b]">{t.botanicalSmart}</span>
                         <ChevronRight className="w-3.5 h-3.5 text-black/30 group-hover:text-black" />
                       </button>
 
@@ -919,27 +1405,27 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
 
                   {/* Recent Activity Log Panel (Artistic Flair specification layout) */}
                   <div className="bg-white rounded-3xl p-6 border border-[#1a1a1a]/5 shadow-sm space-y-4">
-                    <h4 className="text-[10px] tracking-widest uppercase text-black/40 font-mono font-bold">System Log & Updates</h4>
+                    <h4 className="text-[10px] tracking-widest uppercase text-black/40 font-mono font-bold">{t.systemLog}</h4>
                     
                     <div className="space-y-3.5">
                       <div className="flex items-start space-x-3">
                         <div className="w-2 h-2 rounded-full bg-[#064e3b] mt-1.5 flex-shrink-0 animate-pulse"></div>
                         <p className="text-[11px] leading-relaxed text-black/70">
-                          <span className="font-bold text-black">AI Curation</span> analyzed the layout variables for <strong>Garden Villa B</strong> and suggested passive wind-tunnel orientation.
+                          <span className="font-bold text-black">{t.aiCuration}</span> {t.aiCurationText}
                         </p>
                       </div>
 
                       <div className="flex items-start space-x-3">
                         <div className="w-2 h-2 rounded-full bg-[#d4af37] mt-1.5 flex-shrink-0"></div>
                         <p className="text-[11px] leading-relaxed text-black/70">
-                          <span className="font-bold text-black">Director</span> uploaded <strong>Zen Spa Floor Plan</strong> to the architectural asset database.
+                          <span className="font-bold text-black">{t.directorUploaded}</span> {t.directorUploadedText}
                         </p>
                       </div>
 
                       <div className="flex items-start space-x-3">
                         <div className="w-2 h-2 rounded-full bg-[#1a1a1a]/30 mt-1.5 flex-shrink-0"></div>
                         <p className="text-[11px] leading-relaxed text-black/70">
-                          Curator approved lesson: <strong>Introduction to Natural Silhouettes</strong> quiz completions.
+                          {t.curatorApproved}
                         </p>
                       </div>
                     </div>
@@ -957,14 +1443,14 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             <div className="space-y-8 animate-fade-in">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h2 className="text-3xl font-serif text-brand-dark">Biophilic Knowledge Graph</h2>
-                  <p className="text-sm text-black/50">Construct, refine, and connect high-end hospitality rules.</p>
+                  <h2 className="text-3xl font-serif text-brand-dark">{t.biophilicGraph}</h2>
+                  <p className="text-sm text-black/50">{t.constructRules}</p>
                 </div>
                 
                 {/* Search / Filter status */}
                 <div className="bg-white border border-[#1a1a1a]/5 px-4 py-2 rounded-xl text-xs font-mono text-black/60 flex items-center gap-2">
                   <Filter className="w-3.5 h-3.5 text-[#d4af37]" />
-                  <span>Showing {filteredNodes.length} mapped variables</span>
+                  <span>{t.showingVariables.replace('{count}', filteredNodes.length.toString())}</span>
                 </div>
               </div>
 
@@ -974,8 +1460,8 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                 {/* Visual SVG Core Connector Map - Left */}
                 <div className="lg:col-span-8 bg-white border border-[#1a1a1a]/5 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[460px]">
                   <div className="flex justify-between items-center border-b border-black/5 pb-4">
-                    <span className="text-xs uppercase font-mono tracking-wider opacity-50">Topological Grid Canvas</span>
-                    <span className="text-[10px] bg-[#064e3b]/10 text-[#064e3b] px-2.5 py-1 rounded-full font-bold">2D INTERACTIVE MODEL</span>
+                    <span className="text-xs uppercase font-mono tracking-wider opacity-50">{t.gridCanvas}</span>
+                    <span className="text-[10px] bg-[#064e3b]/10 text-[#064e3b] px-2.5 py-1 rounded-full font-bold">{t.interactiveModel}</span>
                   </div>
 
                   {/* SVG Canvas Map */}
@@ -984,8 +1470,8 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                     {/* SVG Connections drawing dynamically */}
                     <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
                       {GRAPH_CONNECTIONS.map((c, i) => {
-                        const sNode = nodes.find(n => n.id === c.source);
-                        const tNode = nodes.find(n => n.id === c.target);
+                        const sNode = localizedNodes.find(n => n.id === c.source);
+                        const tNode = localizedNodes.find(n => n.id === c.target);
                         if (!sNode || !tNode) return null;
                         
                         // Assigning deterministic coordinate offsets to represent a clean map
@@ -1028,7 +1514,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                     </svg>
 
                     {/* Nodes Rendered As Floating Interactive Buttons */}
-                    {nodes.map(node => {
+                    {localizedNodes.map(node => {
                       const coords: Record<string, {x: string, y: string}> = {
                         'spa-arch': { x: 'left-[40%]', y: 'top-[15%]' },
                         'thermal-dynamics': { x: 'left-[15%]', y: 'top-[60%]' },
@@ -1110,28 +1596,28 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
 
                 {/* Information Node Detail Drawer & Presets - Right */}
                 <div className="lg:col-span-4 space-y-6">
-                  {selectedNode ? (
+                  {localizedSelectedNode ? (
                     <div className="bg-white border border-[#1a1a1a]/5 rounded-3xl p-6 shadow-sm space-y-6">
                       <div className="flex justify-between items-center border-b border-black/5 pb-4">
                         <span className="text-[10px] tracking-widest uppercase font-mono bg-[#d4af37]/15 text-[#1a1a1a] px-3 py-1 rounded-full font-bold">
-                          {selectedNode.category}
+                          {localizedSelectedNode.category}
                         </span>
                         <div className="text-right">
-                          <div className="text-[9px] uppercase font-mono opacity-40">Impact Metrics</div>
-                          <div className="text-xl font-serif text-[#064e3b] font-bold">{selectedNode.impactScore}/100</div>
+                          <div className="text-[9px] uppercase font-mono opacity-40">{t.impactMetrics}</div>
+                          <div className="text-xl font-serif text-[#064e3b] font-bold">{localizedSelectedNode.impactScore}/100</div>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        <h3 className="font-serif text-2xl text-brand-dark">{selectedNode.name}</h3>
-                        <p className="text-xs text-black/55 leading-relaxed font-sans">{selectedNode.description}</p>
+                        <h3 className="font-serif text-2xl text-brand-dark">{localizedSelectedNode.name}</h3>
+                        <p className="text-xs text-black/55 leading-relaxed font-sans">{localizedSelectedNode.description}</p>
                       </div>
 
-                      {selectedNode.imageUrl && (
+                      {localizedSelectedNode.imageUrl && (
                         <div className="h-36 rounded-2xl overflow-hidden border border-black/5">
                           <img 
-                            src={selectedNode.imageUrl} 
-                            alt={selectedNode.name} 
+                            src={localizedSelectedNode.imageUrl} 
+                            alt={localizedSelectedNode.name} 
                             referrerPolicy="no-referrer"
                             className="w-full h-full object-cover" 
                           />
@@ -1139,14 +1625,14 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                       )}
 
                       <div className="space-y-3 bg-[#fcfaf5] p-4 rounded-2xl border border-black/5">
-                        <h4 className="text-xs uppercase tracking-widest text-[#d4af37] font-mono font-bold">Concept Principles</h4>
-                        <p className="text-[11px] text-[#1a1a1a] leading-relaxed font-serif italic">"{selectedNode.content}"</p>
+                        <h4 className="text-xs uppercase tracking-widest text-[#d4af37] font-mono font-bold">{t.conceptPrinciples}</h4>
+                        <p className="text-[11px] text-[#1a1a1a] leading-relaxed font-serif italic">"{localizedSelectedNode.content}"</p>
                       </div>
 
                       <div className="space-y-2.5">
-                        <div className="text-[10px] uppercase font-mono tracking-wider text-black/40">Associated Taxonomy Tags</div>
+                        <div className="text-[10px] uppercase font-mono tracking-wider text-black/40">{t.associatedTags}</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {selectedNode.relatedConcepts.map((tag, i) => (
+                          {localizedSelectedNode.relatedConcepts.map((tag, i) => (
                             <span key={i} className="px-2.5 py-1 bg-black/5 rounded-full text-[10px] border border-black/5">
                               {tag}
                             </span>
@@ -1158,19 +1644,19 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                         <button 
                           onClick={() => {
                             setActiveTab('advisor');
-                            applyPresetPrompt(`Detail the architectural construction parameters regarding our knowledge component: "${selectedNode.name}" and provide the chemical or structural specifications needed.`);
+                            applyPresetPrompt(`Detail the architectural construction parameters regarding our knowledge component: "${localizedSelectedNode.name}" and provide the chemical or structural specifications needed.`);
                           }}
                           className="w-full py-3 bg-[#1a1a1a] text-[#d4af37] rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#d4af37] hover:text-[#1a1a1a] transition-all flex items-center justify-center gap-2"
                         >
                           <Bot className="w-4 h-4" />
-                          Consult Advisor on Node
+                          {t.consultAdvisor}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="bg-white border border-[#1a1a1a]/5 rounded-3xl p-6 shadow-sm text-center py-16 text-black/40">
                       <HelpCircle className="w-12 h-12 mx-auto stroke-1 text-[#d4af37] mb-3" />
-                      <p className="text-sm">Select any topological node inside the left graph quadrant to load active design guidelines.</p>
+                      <p className="text-sm">{t.selectNodeHelp}</p>
                     </div>
                   )}
                 </div>
@@ -1183,7 +1669,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
           {activeTab === 'academy' && (
             <div className="space-y-8 animate-fade-in">
               <div className="border-b border-black/5 pb-4">
-                <h2 className="text-3xl font-serif text-brand-dark">Curated Learning Academy</h2>
+                <h2 className="text-3xl font-serif text-brand-dark">{t.academy}</h2>
                 <p className="text-sm text-black/50">High-end design courses, masterclass blueprints, and instant AI quizzes.</p>
               </div>
 
@@ -1192,10 +1678,10 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                 
                 {/* Available Courses list - Left */}
                 <div className="lg:col-span-4 space-y-4">
-                  <div className="text-xs uppercase font-mono tracking-widest text-[#d4af37] font-semibold mb-2">Available Masterclasses</div>
+                  <div className="text-xs uppercase font-mono tracking-widest text-[#d4af37] font-semibold mb-2">{t.availableMasterclasses}</div>
                   
-                  {courses.map(course => {
-                    const isSelected = selectedCourse.id === course.id;
+                  {localizedCourses.map(course => {
+                    const isSelected = localizedSelectedCourse.id === course.id;
                     return (
                       <div 
                         key={course.id}
@@ -1224,14 +1710,14 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                         {/* Progress and indicators */}
                         <div className="mt-8 space-y-2">
                           <div className="flex justify-between items-center text-[11px] font-mono text-black/60">
-                            <span>Completeness</span>
+                            <span>{t.completeness}</span>
                             <span>{course.progress}%</span>
                           </div>
                           <div className="h-1 bg-black/5 rounded-full overflow-hidden">
                             <div className="h-full bg-[#064e3b]" style={{ width: `${course.progress}%` }}></div>
                           </div>
                           <div className="text-[10px] text-black/40 pt-2 flex justify-between">
-                            <span>Instructor: {course.instructor}</span>
+                            <span>{t.instructor}: {course.instructor}</span>
                             <span>{course.duration}</span>
                           </div>
                         </div>
@@ -1246,14 +1732,14 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                   {/* Lesson Selector Tab Header */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-black/5 pb-4 gap-4">
                     <div>
-                      <span className="text-[10px] tracking-widest font-mono text-black/40 uppercase">Interactive Course Reader</span>
-                      <h3 className="font-serif text-2xl text-brand-dark">{selectedCourse.title}</h3>
+                      <span className="text-[10px] tracking-widest font-mono text-black/40 uppercase">{t.courseReader}</span>
+                      <h3 className="font-serif text-2xl text-brand-dark">{localizedSelectedCourse.title}</h3>
                     </div>
                     
                     {/* Lesson toggle select list */}
                     <div className="flex gap-1 bg-[#fcfaf5] p-1 rounded-xl border border-black/5">
-                      {selectedCourse.lessons.map((lesson, index) => {
-                        const isActive = activeLesson.id === lesson.id;
+                      {localizedSelectedCourse.lessons.map((lesson, index) => {
+                        const isActive = localizedActiveLesson.id === lesson.id;
                         return (
                           <button
                             key={lesson.id}
@@ -1279,31 +1765,31 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                   <div className="space-y-4">
                     <div className="flex items-center space-x-2 text-xs font-mono text-black/55">
                       <Clock className="w-3.5 h-3.5 text-[#d4af37]" />
-                      <span>Duration: {activeLesson.duration}</span>
+                      <span>{t.duration}: {localizedActiveLesson.duration}</span>
                       <span>•</span>
                       <span className="text-[#064e3b] font-bold">Curated learning curriculum</span>
                     </div>
 
-                    <h4 className="text-xl font-serif leading-none italic">{activeLesson.title}</h4>
+                    <h4 className="text-xl font-serif leading-none italic">{localizedActiveLesson.title}</h4>
                     <p className="text-sm font-sans text-brand-dark leading-relaxed font-light whitespace-pre-line bg-[#fcfaf5] p-6 rounded-2xl border border-black/5">
-                      {activeLesson.content}
+                      {localizedActiveLesson.content}
                     </p>
                   </div>
 
                   {/* Active AI Quiz Interactive Widget */}
-                  {activeLesson.quiz && (
+                  {localizedActiveLesson.quiz && (
                     <div className="border-t border-black/5 pt-6 space-y-4">
                       
                       <div className="flex items-center space-x-2 bg-[#d4af37]/10 px-4 py-2 rounded-xl border border-[#d4af37]/20">
                         <Sparkles className="w-4 h-4 text-[#d4af37] animate-pulse" />
-                        <span className="text-xs font-serif font-semibold text-[#1a1a1a]">Immediate AI Quiz Challenge</span>
+                        <span className="text-xs font-serif font-semibold text-[#1a1a1a]">{t.immediateQuiz}</span>
                       </div>
 
                       <div className="bg-[#fcfaf5] border border-black/5 p-6 rounded-2xl space-y-4">
-                        <p className="text-sm font-serif font-medium leading-relaxed">{activeLesson.quiz.question}</p>
+                        <p className="text-sm font-serif font-medium leading-relaxed">{localizedActiveLesson.quiz.question}</p>
                         
                         <div className="space-y-2">
-                          {activeLesson.quiz.options.map((option, idx) => {
+                          {localizedActiveLesson.quiz.options.map((option, idx) => {
                             const isSelected = quizAnswer === idx;
                             return (
                               <button
@@ -1331,7 +1817,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                               onClick={submitQuiz}
                               className="px-6 py-2.5 bg-[#064e3b] text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-[#1a1a1a] transition-all"
                             >
-                              Submit Verification
+                              {t.submitVerification}
                             </button>
                           </div>
                         )}
@@ -1339,24 +1825,24 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                         {/* Quiz result screen */}
                         {quizSubmitted && (
                           <div className={`p-4 rounded-xl border space-y-2 animate-fade-in ${
-                            quizAnswer === activeLesson.quiz.correctAnswer 
+                            quizAnswer === localizedActiveLesson.quiz.correctAnswer 
                               ? 'bg-[#064e3b]/5 border-[#064e3b]/30 text-[#064e3b]' 
                               : 'bg-red-50 border-red-200 text-red-700'
                           }`}>
                             <div className="font-bold flex items-center gap-1.5 text-xs font-serif">
-                              {quizAnswer === activeLesson.quiz.correctAnswer ? (
+                              {quizAnswer === localizedActiveLesson.quiz.correctAnswer ? (
                                 <>
                                   <CheckCircle2 className="w-4 h-4 text-[#064e3b] animate-bounce" />
-                                  ✓ Concept Perfectly Masters!
+                                  {t.conceptMastered}
                                 </>
                               ) : (
                                 <>
                                   <AlertCircle className="w-4 h-4 text-red-600" />
-                                  ✗ Analysis Divergence
+                                  {t.analysisDivergence}
                                 </>
                               )}
                             </div>
-                            <p className="text-xs">{activeLesson.quiz.explanation}</p>
+                            <p className="text-xs">{localizedActiveLesson.quiz.explanation}</p>
                             
                             <div className="pt-2 flex justify-end gap-2 text-xs font-sans">
                               <button 
@@ -1366,15 +1852,15 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                                 }}
                                 className="px-3.5 py-1.5 text-black border border-black/5 bg-white hover:bg-[#fcfaf5] rounded font-medium"
                               >
-                                Retry Quiz
+                                {t.retryQuiz}
                               </button>
                               
-                              {selectedCourse.lessons.findIndex(l => l.id === activeLesson.id) < selectedCourse.lessons.length - 1 && (
+                              {localizedSelectedCourse.lessons.findIndex(l => l.id === localizedActiveLesson.id) < localizedSelectedCourse.lessons.length - 1 && (
                                 <button 
                                   onClick={nextLesson}
                                   className="px-3.5 py-1.5 bg-[#d4af37] text-black font-bold uppercase tracking-wider rounded text-[10px]"
                                 >
-                                  Next Module
+                                  {t.nextModule}
                                 </button>
                               )}
                             </div>
@@ -1390,13 +1876,396 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                   <div className="border-t border-black/5 pt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs">
                     <div className="flex items-center space-x-2 text-black/50">
                       <Award className="w-4.5 h-4.5 text-[#d4af37]" />
-                      <span>Earn 100% to generate professional Hotel Elysora Academy Credentials.</span>
+                      <span>{t.credentialsWarning}</span>
                     </div>
-                    {selectedCourse.progress === 100 && (
+                    {localizedSelectedCourse.progress === 100 && (
                       <div className="bg-[#064e3b] text-white px-3 py-1.5 rounded font-serif italic flex items-center gap-1">
-                        🏆 Credentials unlocked!
+                        {t.credentialsUnlocked}
                       </div>
                     )}
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* VIEW C2: MANAGEMENT ACADEMY (Académie de gestion) */}
+          {activeTab === 'academy_mgmt' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="border-b border-black/5 pb-4">
+                <h2 className="text-3xl font-serif text-brand-dark">{lang === 'zh' ? '管理学院' : lang === 'fr' ? 'Académie de gestion' : 'Management Academy'}</h2>
+                <p className="text-sm text-black/50">{lang === 'zh' ? '高端酒店运营课程，全面合规性与策略蓝图' : lang === 'fr' ? 'Cours de gestion haut de gamme, conformité réglementaire et stratégies hôtelières.' : 'High-end hospitality operations, compliance blueprints, and tactical checklists.'}</p>
+              </div>
+
+              {/* Course Catalog Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                {/* Available Courses list - Left */}
+                <div className="lg:col-span-4 space-y-4">
+                  <div className="text-xs uppercase font-mono tracking-widest text-[#d4af37] font-semibold mb-2">{lang === 'zh' ? '管理特训大纲' : lang === 'fr' ? 'Cursus de Gestion Dispos' : 'Management Curriculums'}</div>
+                  
+                  {localizedCoursesMgmt.map(course => {
+                    const isSelected = localizedSelectedCourseMgmt.id === course.id;
+                    return (
+                      <div 
+                        key={course.id}
+                        onClick={() => {
+                          setSelectedCourseMgmt(course);
+                          setActiveLessonMgmt(course.lessons[0]);
+                          setQuizAnswerMgmt(null);
+                          setQuizSubmittedMgmt(false);
+                        }}
+                        className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected 
+                            ? 'bg-white border-[#d4af37] shadow-md' 
+                            : 'bg-white/50 border-black/5 hover:border-black/20 hover:bg-white'
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-[10px] font-mono text-black/40">
+                            <span>{course.category}</span>
+                            <span className="px-2 py-0.5 bg-black/5 rounded-full font-bold">{course.level}</span>
+                          </div>
+                          <h3 className="font-serif text-lg leading-snug group-hover:text-[#064e3b]">
+                            {course.title}
+                          </h3>
+                        </div>
+
+                        {/* Progress and indicators */}
+                        <div className="mt-8 space-y-2">
+                          <div className="flex justify-between items-center text-[11px] font-mono text-black/60">
+                            <span>{t.completeness}</span>
+                            <span>{course.progress}%</span>
+                          </div>
+                          <div className="h-1 bg-black/5 rounded-full overflow-hidden">
+                            <div className="h-full bg-[#1e293b]" style={{ width: `${course.progress}%` }}></div>
+                          </div>
+                          <div className="text-[10px] text-black/40 pt-2 flex justify-between">
+                            <span>{t.instructor}: {course.instructor}</span>
+                            <span>{course.duration}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Active Course Classroom Pane - Right */}
+                <div className="lg:col-span-8 bg-white border border-[#1a1a1a]/5 rounded-3xl p-8 shadow-sm space-y-6">
+                  
+                  {/* Lesson Selector Tab Header */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-black/5 pb-4 gap-4">
+                    <div>
+                      <span className="text-[10px] tracking-widest font-mono text-black/45 uppercase">{lang === 'zh' ? '管理读本' : lang === 'fr' ? 'Lecteur du cours' : 'Course Reader'}</span>
+                      <h3 className="font-serif text-2xl text-brand-dark">{localizedSelectedCourseMgmt.title}</h3>
+                    </div>
+                    
+                    {/* Lesson toggle select list */}
+                    <div className="flex gap-1 bg-[#fcfaf5] p-1 rounded-xl border border-black/5">
+                      {localizedSelectedCourseMgmt.lessons.map((lesson, index) => {
+                        const isActive = localizedActiveLessonMgmt.id === lesson.id;
+                        return (
+                          <button
+                            key={lesson.id}
+                            onClick={() => {
+                              setActiveLessonMgmt(lesson);
+                              setQuizAnswerMgmt(null);
+                              setQuizSubmittedMgmt(false);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-serif transition-all ${
+                              isActive 
+                                ? 'bg-[#1a1a1a] text-[#d4af37] font-medium shadow-sm' 
+                                : 'text-black/50 hover:text-black'
+                            }`}
+                          >
+                            Module {index + 1}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Lesson Core Text */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2 text-xs font-mono text-black/55">
+                      <Clock className="w-3.5 h-3.5 text-[#d4af37]" />
+                      <span>{t.duration}: {localizedActiveLessonMgmt.duration}</span>
+                      <span>•</span>
+                      <span className="text-[#064e3b] font-bold">{lang === 'zh' ? '营运智慧课程' : lang === 'fr' ? 'Plan d\'études opérationnelles' : 'Operations Management Curriculum'}</span>
+                    </div>
+
+                    <h4 className="text-xl font-serif leading-none italic">{localizedActiveLessonMgmt.title}</h4>
+                    <p className="text-sm font-sans text-brand-dark leading-relaxed font-light whitespace-pre-line bg-[#fcfaf5] p-6 rounded-2xl border border-black/5">
+                      {localizedActiveLessonMgmt.content}
+                    </p>
+                  </div>
+
+                  {/* Active AI Quiz Interactive Widget */}
+                  {localizedActiveLessonMgmt.quiz && (
+                    <div className="border-t border-black/5 pt-6 space-y-4">
+                      
+                      <div className="flex items-center space-x-2 bg-[#d4af37]/10 px-4 py-2 rounded-xl border border-[#d4af37]/20">
+                        <Sparkles className="w-4 h-4 text-[#d4af37] animate-pulse" />
+                        <span className="text-xs font-serif font-semibold text-[#1a1a1a]">{lang === 'zh' ? '即时管理合规度评估' : lang === 'fr' ? 'Évaluation immédiate' : 'Immediate Management Assessment'}</span>
+                      </div>
+
+                      <div className="bg-[#fcfaf5] border border-black/5 p-6 rounded-2xl space-y-4">
+                        <p className="text-sm font-serif font-medium leading-relaxed">{localizedActiveLessonMgmt.quiz.question}</p>
+                        
+                        <div className="space-y-2">
+                          {localizedActiveLessonMgmt.quiz.options.map((option, idx) => {
+                            const isSelected = quizAnswerMgmt === idx;
+                            return (
+                              <button
+                                key={idx}
+                                disabled={quizSubmittedMgmt}
+                                onClick={() => handleQuizAnswerMgmt(idx)}
+                                className={`w-full text-left p-4 rounded-xl text-xs flex justify-between items-center border transition-all ${
+                                  isSelected 
+                                    ? 'bg-[#1a1a1a] text-white border-black ring-2 ring-[#d4af37]/20 font-medium' 
+                                    : 'bg-white border-black/5 hover:bg-black/[0.02] hover:border-black/10'
+                                }`}
+                              >
+                                <span>{option}</span>
+                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-[#d4af37] bg-[#d4af37]' : 'border-black/20'}`}>
+                                  {isSelected && <div className="w-1.5 h-1.5 bg-black rounded-full" />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {quizAnswerMgmt !== null && !quizSubmittedMgmt && (
+                          <div className="flex justify-end pt-2">
+                            <button 
+                              onClick={submitQuizMgmt}
+                              className="px-6 py-2.5 bg-[#064e3b] text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-[#1a1a1a] transition-all"
+                            >
+                              {t.submitVerification}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Quiz result screen */}
+                        {quizSubmittedMgmt && (
+                          <div className={`p-4 rounded-xl border space-y-2 animate-fade-in ${
+                            quizAnswerMgmt === localizedActiveLessonMgmt.quiz.correctAnswer 
+                              ? 'bg-[#064e3b]/5 border-[#064e3b]/30 text-[#064e3b]' 
+                              : 'bg-red-50 border-red-200 text-red-700'
+                          }`}>
+                            <div className="font-bold flex items-center gap-1.5 text-xs font-serif">
+                              {quizAnswerMgmt === localizedActiveLessonMgmt.quiz.correctAnswer ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 text-[#064e3b] animate-bounce" />
+                                  {lang === 'zh' ? '管理概念已学成' : lang === 'fr' ? 'Concept de gestion maîtrisé' : 'Management Concept Mastered'}
+                                </>
+                              ) : (
+                                <>
+                                  <AlertCircle className="w-4 h-4 text-red-600" />
+                                  {t.analysisDivergence}
+                                </>
+                              )}
+                            </div>
+                            <p className="text-xs">{localizedActiveLessonMgmt.quiz.explanation}</p>
+                            
+                            <div className="pt-2 flex justify-end gap-2 text-xs font-sans">
+                              <button 
+                                onClick={() => {
+                                  setQuizAnswerMgmt(null);
+                                  setQuizSubmittedMgmt(false);
+                                }}
+                                className="px-3.5 py-1.5 text-black border border-black/5 bg-white hover:bg-[#fcfaf5] rounded font-medium"
+                              >
+                                {t.retryQuiz}
+                              </button>
+                              
+                              {localizedSelectedCourseMgmt.lessons.findIndex(l => l.id === localizedActiveLessonMgmt.id) < localizedSelectedCourseMgmt.lessons.length - 1 && (
+                                <button 
+                                  onClick={nextLessonMgmt}
+                                  className="px-3.5 py-1.5 bg-[#d4af37] text-black font-bold uppercase tracking-wider rounded text-[10px]"
+                                >
+                                  {t.nextModule}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* Dynamic Certificate Progress Footer */}
+                  <div className="border-t border-black/5 pt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs">
+                    <div className="flex items-center space-x-2 text-black/50">
+                      <Award className="w-4.5 h-4.5 text-[#d4af37]" />
+                      <span>{lang === 'zh' ? '取得 Elysora 企业运营战略资格证明。' : lang === 'fr' ? 'Complétez ce module pour obtenir la certification légale Elysora.' : 'Earn credentials for compliance & corporate intelligence.'}</span>
+                    </div>
+                    {localizedSelectedCourseMgmt.progress === 100 && (
+                      <div className="bg-[#064e3b] text-white px-3 py-1.5 rounded font-serif italic flex items-center gap-1">
+                        {lang === 'zh' ? '经营勋章已开启' : lang === 'fr' ? 'Certificat de gestion activé' : 'Management Credentials Unlocked'}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* VIEW D2: MANAGEMENT GALLERY (Galerie de gestion, identical/inspired by design gallery) */}
+          {activeTab === 'gallery_mgmt' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="border-b border-black/5 pb-4">
+                <h2 className="text-3xl font-serif text-brand-dark">{lang === 'zh' ? '管理画廊与资产库' : lang === 'fr' ? 'Galerie de gestion hôtelière' : 'Hospitality Management Gallery'}</h2>
+                <p className="text-sm text-black/50">{lang === 'zh' ? '运营管理标准说明、财务审计数据与合规性资产库。' : lang === 'fr' ? 'Blueprints opérationnels, audits de conformité, rapports financiers et photos d\'inspiration.' : 'Operations logs, financial spreadsheets, safety approvals, and concept notes.'}</p>
+              </div>
+
+              {/* Upload Drop Zone Simulators */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                {/* File Drop & Control side - Left */}
+                <div className="lg:col-span-4 space-y-6">
+                  
+                  {/* Drag and Drop Zone */}
+                  <div 
+                    onDragOver={handleDragOverMgmt}
+                    onDragLeave={handleDragLeaveMgmt}
+                    onDrop={handleDropMgmt}
+                    className={`border-2 border-dashed rounded-3xl p-8 py-12 text-center transition-all cursor-pointer flex flex-col justify-center items-center ${
+                      isDraggingMgmt 
+                        ? 'border-[#d4af37] bg-[#d4af37]/5 scale-[0.98]' 
+                        : 'border-[#1a1a1a]/15 bg-white hover:border-[#d4af37]/60'
+                    }`}
+                    onClick={() => fileInputRefMgmt.current?.click()}
+                  >
+                    <input 
+                      type="file" 
+                      ref={fileInputRefMgmt}
+                      onChange={handleFileSelectMgmt}
+                      className="hidden" 
+                      accept=".png,.jpg,.jpeg,.pdf,.dwg,.xlsx,.xls,.doc,.docx,.csv"
+                    />
+                    <Upload className="w-10 h-10 text-[#d4af37] mb-4 stroke-1" />
+                    <h4 className="text-sm font-serif font-medium text-[#1a1a1a]">Import New Concept Asset</h4>
+                    <p className="text-xs text-black/40 mt-1 max-w-xs justify-center leading-relaxed font-sans">
+                      {lang === 'zh' ? '拖拽审计电子表格、可行性方案或直接点击以选择文件 (Excel, PDF, JPG)。' : lang === 'fr' ? 'Faites glisser des rapports, photos de conformité ou cliquez pour charger (.XLSX, .PDF, .PNG).' : 'Drag financial reports, compliance photos or click to upload (.XLSX, .PDF, .PNG).'}
+                    </p>
+                    <span className="mt-4 px-3 py-1 bg-black/5 rounded-full text-[10px] uppercase font-mono tracking-wider text-black/50">
+                      Auto-registers with AI Advisor
+                    </span>
+                  </div>
+
+                  {/* Asset list filter details */}
+                  <div className="bg-white border border-[#1a1a1a]/5 rounded-3xl p-6 space-y-4">
+                    <h5 className="text-[10px] uppercase font-mono tracking-widest text-[#d4af37] font-bold">{lang === 'zh' ? '管理库类别分布' : lang === 'fr' ? 'Actifs par catégorie' : 'Category Distribution'}</h5>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between border-b border-black/5 pb-1">
+                        <span>{lang === 'zh' ? '运营审计手册' : lang === 'fr' ? 'Manuels d\'Opérations' : 'Operations (SOP)'}</span>
+                        <span className="font-mono">{galleryMgmt.filter(g => g.category === 'operations').length}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-black/5 pb-1">
+                        <span>{lang === 'zh' ? '战略规划材料' : lang === 'fr' ? 'Planifications & Stratégies' : 'Planning Studies'}</span>
+                        <span className="font-mono">{galleryMgmt.filter(g => g.category === 'planning').length}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Render Grid Assets - Right */}
+                <div className="lg:col-span-8 space-y-4">
+                  <div className="text-xs uppercase font-mono tracking-widest text-black/40 mb-2">{lang === 'zh' ? '战略资产浏览网格' : lang === 'fr' ? 'Grille d\'Inspirations de Gestion' : 'Strategic Compliance Asset Grid'}</div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {localizedGalleryMgmt.map(asset => {
+                      const isPdfOrSheet = asset.imageUrl.includes('photo-1450133064473');
+                      const isCalculator = asset.id === 'gal-mgmt-5';
+                      return (
+                        <div key={asset.id} className="bg-white border border-black/5 rounded-3xl overflow-hidden shadow-sm hover:border-[#d4af37]/50 transition-all flex flex-col group">
+                          
+                          <div 
+                            onClick={() => setSelectedMgmtAsset(asset)}
+                            className="h-56 relative overflow-hidden bg-[#1a1a1a] border-b border-black/10 cursor-pointer"
+                          >
+                            <img 
+                              src={asset.imageUrl} 
+                              alt={asset.name} 
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            />
+                            <span className="absolute top-4 left-4 text-[9px] tracking-widest uppercase font-mono bg-[#1a1a1a] text-[#d4af37] px-2.5 py-1 rounded-full border border-[#d4af37]/30">
+                              {asset.category}
+                            </span>
+                            {isCalculator && (
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                                <span className="bg-white text-black px-4 py-2 rounded-xl text-xs font-serif font-semibold shadow-xl flex items-center gap-1.5 animate-pulse">
+                                  <Calculator className="w-4 h-4 text-[#d4af37]" />
+                                  {lang === 'zh' ? '开启独立计算测算舱' : lang === 'fr' ? 'Ouvrir l\'étude interactive' : 'Open Interactive Study'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
+                            <div className="space-y-1">
+                              <h4 
+                                onClick={() => setSelectedMgmtAsset(asset)}
+                                className="font-serif text-lg font-medium text-[#1a1a1a] hover:text-[#d4af37] transition-colors leading-tight cursor-pointer"
+                              >
+                                {asset.name}
+                              </h4>
+                              <p className="text-xs text-black/40 font-mono italic">
+                                {isCalculator 
+                                  ? (lang === 'zh' ? '交互式财务收益测算工具' : lang === 'fr' ? 'Modèle financier interactif' : 'Interactive Yield Study')
+                                  : isPdfOrSheet 
+                                    ? 'Corporate Audit Document' 
+                                    : 'Inspiration Concept Asset'
+                                }
+                              </p>
+                            </div>
+
+                            <div className="space-y-3">
+                              <div className="flex flex-wrap gap-1">
+                                {asset.tags.map((tag, i) => (
+                                  <span key={i} className="text-[9px] font-mono px-2 py-0.5 bg-black/5 rounded-full border border-black/5">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+
+                              <div className="flex flex-col gap-2">
+                                {isCalculator && (
+                                  <button 
+                                    onClick={() => setSelectedMgmtAsset(asset)}
+                                    className="w-full py-2.5 bg-[#d4af37] text-black rounded-xl text-xs font-serif font-bold hover:bg-[#1a1a1a] hover:text-[#d4af37] transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                                  >
+                                    <Calculator className="w-3.5 h-3.5" />
+                                    {lang === 'zh' ? '开启测算与学习舱' : lang === 'fr' ? 'Ouvrir le simulateur & la leçon' : 'Open Simulator & Study'}
+                                  </button>
+                                )}
+
+                                <button 
+                                  onClick={() => {
+                                    setActiveTab('advisor');
+                                    applyPresetPrompt(`Evaluate the operational parameters and statutory risk elements for the management asset in our archive: "${asset.name}" categorized under: "${asset.category}". Provide structured feedback on audit resilience and compliance.`);
+                                  }}
+                                  className="w-full py-2 bg-[#fcfaf5] border border-black/10 hover:border-[#d4af37] rounded-xl text-xs font-serif font-medium text-[#1a1a1a] hover:bg-white transition-all flex items-center justify-center gap-1.5"
+                                >
+                                  <Bot className="w-3.5 h-3.5 text-black/40" />
+                                  Inspect with AI Advisor
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      );
+                    })}
                   </div>
 
                 </div>
@@ -1474,7 +2343,7 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                   <div className="text-xs uppercase font-mono tracking-widest text-black/40 mb-2">Architectural Asset Grid</div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {gallery.map(asset => (
+                    {localizedGallery.map(asset => (
                       <div key={asset.id} className="bg-white border border-black/5 rounded-3xl overflow-hidden shadow-sm hover:border-[#d4af37]/50 transition-all flex flex-col group">
                         
                         <div className="h-56 relative overflow-hidden bg-[#1a1a1a] border-b border-black/10">
@@ -1532,18 +2401,18 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
             <div className="space-y-8 animate-fade-in">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-black/5 pb-4">
                 <div>
-                  <h2 className="text-3xl font-serif text-brand-dark">Hotel Projects & task boards</h2>
+                  <h2 className="text-3xl font-serif text-brand-dark">{t.hotelProjects}</h2>
                   <p className="text-sm text-black/50">Coordinate luxury construction variables across Swiss suites and botanical developments.</p>
                 </div>
 
                 {/* Project Selector tabs */}
                 <div className="flex gap-1.5 bg-[#1a1a1a] p-1.5 rounded-2xl border border-[#d4af37]/20 select-none">
-                  {projects.map(proj => (
+                  {localizedProjects.map(proj => (
                     <button 
                       key={proj.id}
                       onClick={() => setSelectedProject(proj)}
                       className={`px-4 py-2 rounded-xl text-xs font-serif transition-all ${
-                        selectedProject.id === proj.id 
+                        localizedSelectedProject.id === proj.id 
                           ? 'bg-[#d4af37] text-[#1a1a1a] font-bold shadow-md' 
                           : 'text-white/60 hover:text-white'
                       }`}
@@ -1558,24 +2427,24 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
               <div className="bg-[#064e3b] text-white rounded-3xl p-8 grid grid-cols-1 md:grid-cols-12 gap-8 relative overflow-hidden">
                 <div className="md:col-span-8 space-y-4">
                   <div className="text-[10px] uppercase tracking-widest font-mono text-[#d4af37] font-semibold">Active Zone Overview</div>
-                  <h3 className="font-serif text-3xl font-semibold leading-snug">{selectedProject.name}</h3>
-                  <p className="text-xs text-white/70 max-w-xl font-sans leading-relaxed">{selectedProject.description}</p>
+                  <h3 className="font-serif text-3xl font-semibold leading-snug">{localizedSelectedProject.name}</h3>
+                  <p className="text-xs text-white/70 max-w-xl font-sans leading-relaxed">{localizedSelectedProject.description}</p>
                 </div>
                 
                 <div className="md:col-span-4 bg-black/20 p-6 rounded-2xl border border-white/10 flex flex-col justify-between">
                   <div className="flex justify-between text-xs font-mono">
                     <span className="opacity-65">Curated Budget Portfolio:</span>
-                    <span className="font-bold text-[#d4af37]">{selectedProject.budget}</span>
+                    <span className="font-bold text-[#d4af37]">{localizedSelectedProject.budget}</span>
                   </div>
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between text-xs font-mono">
                       <span>Tasks completion metrics</span>
-                      <span>{selectedProject.completedTasksCount}/{selectedProject.tasksCount} Done</span>
+                      <span>{localizedSelectedProject.completedTasksCount}/{localizedSelectedProject.tasksCount} Done</span>
                     </div>
                     <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-[#d4af37]" 
-                        style={{ width: `${selectedProject.tasksCount > 0 ? (selectedProject.completedTasksCount / selectedProject.tasksCount) * 100 : 0}%` }}
+                        style={{ width: `${localizedSelectedProject.tasksCount > 0 ? (localizedSelectedProject.completedTasksCount / localizedSelectedProject.tasksCount) * 100 : 0}%` }}
                       ></div>
                     </div>
                   </div>
@@ -1750,11 +2619,24 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
                 {/* Chat Column - Left */}
                 <div className="lg:col-span-8 bg-white border border-[#1a1a1a]/5 rounded-3xl p-6 shadow-sm flex flex-col h-[520px] justify-between">
                   <div className="flex justify-between items-center border-b border-black/5 pb-3">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <div className="w-2.5 h-2.5 bg-[#064e3b] rounded-full animate-ping"></div>
                       <span className="text-xs font-mono font-bold uppercase tracking-widest text-black/70">Intellectual Server Pathway</span>
+                      {loadedDraftId && (
+                        <span className="bg-[#d4af37]/15 text-[#1a1a1a] border border-[#d4af37]/30 text-[9px] px-2 py-0.5 rounded-full font-mono uppercase font-bold animate-pulse">
+                          {t.activeChatLabel}: {draftLogs.find(d => d.id === loadedDraftId)?.title || 'Draft'}
+                        </span>
+                      )}
                     </div>
-                    <button onClick={() => setChatHistory([])} className="text-[10px] text-red-500 hover:underline">Clear Consultation Logs</button>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={handleNewChat}
+                        className="text-[10px] text-[#064e3b] font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>+</span> {lang === 'zh' ? '新建会话' : lang === 'fr' ? 'Nouveau' : 'New Session'}
+                      </button>
+                      <button onClick={() => setChatHistory([])} className="text-[10px] text-red-500 hover:underline cursor-pointer">Clear Consultation Logs</button>
+                    </div>
                   </div>
 
                   {/* Message panels scrolling */}
@@ -1819,7 +2701,109 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
 
                 {/* Companion Side Panels - Right */}
                 <div className="lg:col-span-4 space-y-6">
-                  
+
+                  {/* Saved Consultation Drafts */}
+                  <div id="saved-drafts-card" className="bg-white border border-[#1a1a1a]/5 rounded-3xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                      <div className="flex items-center gap-2 text-[10px] uppercase font-mono tracking-widest text-[#d4af37] font-bold">
+                        <History className="w-4 h-4 text-[#d4af37]" />
+                        <span>{t.draftsSidebarTitle}</span>
+                      </div>
+                      {loadedDraftId && (
+                        <button 
+                          onClick={handleNewChat}
+                          className="text-[9px] uppercase font-mono text-black/40 hover:text-black hover:underline cursor-pointer"
+                        >
+                          {lang === 'zh' ? '重置' : lang === 'fr' ? 'Réinitialiser' : 'Reset'}
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Form to Name and Save Current Chat */}
+                    <form onSubmit={(e) => { e.preventDefault(); handleSaveDraft(); }} className="space-y-2">
+                      <label className="text-[9px] uppercase font-mono opacity-50 block mb-1">
+                        {loadedDraftId ? (lang === 'zh' ? '更新草稿名称' : lang === 'fr' ? 'Modifier le titre' : 'Update Draft Title') : (lang === 'zh' ? '保存当前会话为草稿' : lang === 'fr' ? 'Sauvegarder en brouillon' : 'Save Current Session as Draft')}
+                      </label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          placeholder={t.draftNamePlaceholder}
+                          value={draftTitle}
+                          onChange={(e) => setDraftTitle(e.target.value)}
+                          className="flex-1 text-xs p-2.5 bg-[#fcfaf5] border border-black/5 rounded-xl outline-none placeholder:text-black/30"
+                        />
+                        <button 
+                          type="submit"
+                          disabled={chatHistory.length <= 1}
+                          className={`px-3 bg-[#064e3b] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${chatHistory.length <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#d4af37] hover:text-[#1a1a1a]'}`}
+                          title="Save Draft Log"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {chatHistory.length <= 1 && (
+                        <p className="text-[9px] text-black/30 font-mono italic">
+                          {lang === 'zh' ? '开启对话后方可保存草稿。' : lang === 'fr' ? 'Commencez une discussion pour sauvegarder.' : 'Start a conversation to save a draft.'}
+                        </p>
+                      )}
+                    </form>
+
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {draftLogs.length === 0 ? (
+                        <div className="text-center py-6 text-black/30 text-xs italic">
+                          {t.noDraftsYet}
+                        </div>
+                      ) : (
+                        draftLogs.map((draft) => {
+                          const isActive = draft.id === loadedDraftId;
+                          return (
+                            <div 
+                              key={draft.id}
+                              onClick={() => handleLoadDraft(draft)}
+                              className={`p-3 rounded-xl border transition-all text-left cursor-pointer group flex items-center justify-between ${
+                                isActive 
+                                  ? 'bg-[#064e3b]/5 border-[#064e3b]/30' 
+                                  : 'bg-[#fcfaf5] border-black/5 hover:border-[#d4af37]'
+                              }`}
+                            >
+                              <div className="flex-1 min-w-0 pr-2">
+                                <div className="flex items-center gap-1.5 justify-start">
+                                  {isActive && <div className="w-1.5 h-1.5 bg-[#064e3b] rounded-full animate-pulse flex-shrink-0" />}
+                                  <h4 className={`text-xs font-serif font-bold truncate ${isActive ? 'text-[#064e3b]' : 'text-[#1a1a1a]'}`}>
+                                    {draft.title}
+                                  </h4>
+                                </div>
+                                <div className="flex items-center gap-2 text-[9px] text-black/40 font-mono mt-0.5">
+                                  <span>{draft.timestamp}</span>
+                                  <span>•</span>
+                                  <span>{draft.messages.length} msgs</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-all">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleLoadDraft(draft);
+                                  }}
+                                  className={`px-1.5 py-0.5 text-[9px] font-mono rounded ${isActive ? 'bg-[#064e3b] text-white font-semibold' : 'bg-black/5 hover:bg-[#d4af37] text-black hover:text-[#1a1a1a]'}`}
+                                >
+                                  {t.loadDraftBtn}
+                                </button>
+                                <button
+                                  onClick={(e) => handleDeleteDraft(draft.id, e)}
+                                  className="p-1 hover:text-red-500 hover:bg-red-50 rounded transition-all cursor-pointer"
+                                  title="Delete Draft"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
                   {/* Dynamic Layout comparison controller */}
                   <div className="bg-white border border-[#1a1a1a]/5 rounded-3xl p-6 shadow-sm space-y-4">
                     <div className="flex items-center gap-1 text-[10px] uppercase font-mono tracking-widest text-[#d4af37] font-bold">
@@ -1965,6 +2949,496 @@ Provide an optimization projection (energy saved, thermal indices, guest ratings
           )}
 
         </div>
+
+        {/* MANAGEMENT GALLERY LIGHTBOX / INTERACTIVE MODAL */}
+        {selectedMgmtAsset && (
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+            <div className={`bg-white rounded-3xl overflow-hidden shadow-2xl max-w-5xl w-full border border-black/5 flex flex-col md:max-h-[90vh] ${selectedMgmtAsset.id === 'gal-mgmt-5' ? 'h-[85vh]' : ''}`}>
+              
+              {/* Header */}
+              <div className="flex justify-between items-center bg-[#1a1a1a] text-white p-6 border-b border-white/5">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-[#d4af37]/10 rounded-xl border border-[#d4af37]/30 font-mono">
+                    <Briefcase className="w-5 h-5 text-[#d4af37]" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] tracking-widest font-mono text-white/50 uppercase">{selectedMgmtAsset.category}</span>
+                    <h3 className="font-serif text-lg leading-tight text-[#d4af37]">{selectedMgmtAsset.name}</h3>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => setSelectedMgmtAsset(null)}
+                  className="p-2 hover:bg-white/10 rounded-xl transition-all text-white/70 hover:text-white"
+                >
+                  <span className="text-2xl font-light">&times;</span>
+                </button>
+              </div>
+
+              {/* Body */}
+              {selectedMgmtAsset.id === 'gal-mgmt-5' ? (
+                // HIGH FIDELITY HOTEL REVENUE WORKSHOP MODAL
+                <div className="flex-1 overflow-y-auto flex flex-col bg-[#fcfaf5]">
+                  
+                  {/* Internal tabs picker */}
+                  <div className="bg-white border-b border-black/5 px-6 py-3 flex gap-4 text-xs font-serif">
+                    <button 
+                      onClick={() => setCalcActiveTab('calculator')}
+                      className={`pb-2 border-b-2 transition-all font-medium flex items-center gap-1.5 ${calcActiveTab === 'calculator' ? 'border-[#d4af37] text-black' : 'border-transparent text-black/50 hover:text-black'}`}
+                    >
+                      <Calculator className="w-4 h-4 text-[#d4af37]" />
+                      {lang === 'zh' ? '交互智能计算舱' : lang === 'fr' ? 'Simulateur Dynamique' : 'Dynamic Simulator'}
+                    </button>
+                    <button 
+                      onClick={() => setCalcActiveTab('study')}
+                      className={`pb-2 border-b-2 transition-all font-medium flex items-center gap-1.5 ${calcActiveTab === 'study' ? 'border-[#d4af37] text-black' : 'border-transparent text-black/50 hover:text-black'}`}
+                    >
+                      <Award className="w-4 h-4 text-[#d4af37]" />
+                      {lang === 'zh' ? '特训精讲读本' : lang === 'fr' ? 'Évaluation & Manuel' : 'Manual & Calculations'}
+                    </button>
+                  </div>
+
+                  {calcActiveTab === 'calculator' ? (
+                    // INTERACTIVE CALCULATOR
+                    <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
+                      
+                      {/* Left: Input sliders */}
+                      <div className="lg:col-span-5 space-y-6 bg-white p-6 rounded-2xl border border-black/5 shadow-sm">
+                        <div className="border-b border-black/5 pb-3">
+                          <h4 className="font-serif font-semibold text-black flex items-center gap-2">
+                            <Coins className="w-5 h-5 text-[#d4af37]" />
+                            {lang === 'zh' ? '投资与借贷杠杆参数' : lang === 'fr' ? 'Paramètres d\'Acquisition' : 'Acquisition Parameters'}
+                          </h4>
+                          <p className="text-[11px] text-black/40 font-sans mt-0.5">{lang === 'zh' ? '调整酒店的实控数据测算最低保底CA' : lang === 'fr' ? 'Modifiez ces variables pour reculer le point mort réel' : 'Move sliders to recalculate required margins'}</p>
+                        </div>
+
+                        {/* Slider 1: Hotel Acquisition Price */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-black/70 font-serif">{lang === 'zh' ? '酒店收购价格' : lang === 'fr' ? 'Prix d\'achat de l\'hôtel' : 'Hotel Purchase Price'}</span>
+                            <span className="font-mono font-bold text-[#d4af37]">{calcHotelPrice.toLocaleString('fr-FR')} €</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="500000" 
+                            max="8000000" 
+                            step="100000"
+                            value={calcHotelPrice} 
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setCalcHotelPrice(val);
+                              if (calcEquity > val) setCalcEquity(val);
+                            }}
+                            className="w-full h-1.5 bg-black/10 rounded-lg appearance-none cursor-pointer accent-[#d4af37]"
+                          />
+                        </div>
+
+                        {/* Slider 2: Equity Contribution (Apport) */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-black/70 font-serif">{lang === 'zh' ? '首付准备及个人投入' : lang === 'fr' ? 'Votre Apport Personnel' : 'Equity Contribution'}</span>
+                            <span className="font-mono font-bold text-[#d4af37]">{calcEquity.toLocaleString('fr-FR')} € ({((calcEquity / calcHotelPrice) * 100).toFixed(0)}%)</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="100000" 
+                            max={calcHotelPrice} 
+                            step="5000"
+                            value={calcEquity} 
+                            onChange={(e) => setCalcEquity(Number(e.target.value))}
+                            className="w-full h-1.5 bg-black/10 rounded-lg appearance-none cursor-pointer accent-[#d4af37]"
+                          />
+                        </div>
+
+                        {/* Computed block: Bank Loan Principal */}
+                        <div className="bg-[#fcfaf5] p-3 rounded-xl border border-black/5 flex justify-between items-center text-xs">
+                          <span className="text-black/55 font-serif">{lang === 'zh' ? '需借款银行贷款额' : lang === 'fr' ? 'Crédit bancaire requis' : 'Required Bank Credit'}</span>
+                          <span className="font-mono font-bold text-black/80">{(calcHotelPrice - calcEquity).toLocaleString('fr-FR')} €</span>
+                        </div>
+
+                        {/* Slider 3 & 4 */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-black/70 font-serif">{lang === 'zh' ? '年利率' : lang === 'fr' ? 'Taux d\'intérêt' : 'Interest Rate'}</span>
+                              <span className="font-mono font-bold text-black">{calcInterestRate}%</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="1.0" 
+                              max="8.0" 
+                              step="0.1"
+                              value={calcInterestRate} 
+                              onChange={(e) => setCalcInterestRate(Number(e.target.value))}
+                              className="w-full h-1.5 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-black/70 font-serif">{lang === 'zh' ? '借款期限' : lang === 'fr' ? 'Durée (Années)' : 'Term (Years)'}</span>
+                              <span className="font-mono font-bold text-black">{calcTermYears} {lang === 'zh' ? '年' : 'ans'}</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="5" 
+                              max="25" 
+                              step="1"
+                              value={calcTermYears} 
+                              onChange={(e) => setCalcTermYears(Number(e.target.value))}
+                              className="w-full h-1.5 bg-black/10 rounded-lg appearance-none cursor-pointer accent-black"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Slider 5: Operating Cost Percent */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-black/70 font-serif">{lang === 'zh' ? '运营成本及费用比率' : lang === 'fr' ? 'Charges d\'opération hôtelières' : 'Operating Costs Ratio'}</span>
+                            <span className="font-mono font-bold text-[#d4af37]">{calcOperatingCostsPercent}%</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="40" 
+                            max="85" 
+                            step="1"
+                            value={calcOperatingCostsPercent} 
+                            onChange={(e) => setCalcOperatingCostsPercent(Number(e.target.value))}
+                            className="w-full h-1.5 bg-black/10 rounded-lg appearance-none cursor-pointer accent-[#d4af37]"
+                          />
+                          <p className="text-[10px] text-black/40 font-mono">
+                            {lang === 'zh' ? '包含人工 (30-40%), 能源与安全 (5-10%), OTA 佣金 (10-20%)' : lang === 'fr' ? 'Rappels : Personnel ~35%, Énergie ~8%, Commissions OTA (Booking) ~15%' : 'Includes Staff ~35%, Power ~8%, OTA commissions ~15%'}
+                          </p>
+                        </div>
+
+                        {/* Slider 6: Minimum Target Profit */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-black/70 font-serif">{lang === 'zh' ? '期望最低净利润' : lang === 'fr' ? 'Bénéfice Net Cible minimum' : 'Target Min Net profit'}</span>
+                            <span className="font-mono font-bold text-emerald-600">{calcMinTargetProfit.toLocaleString('fr-FR')} €</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="20000" 
+                            max="300000" 
+                            step="5000"
+                            value={calcMinTargetProfit} 
+                            onChange={(e) => setCalcMinTargetProfit(Number(e.target.value))}
+                            className="w-full h-1.5 bg-black/10 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                          />
+                        </div>
+
+                        {/* Reset button */}
+                        <div className="pt-2 flex justify-between items-center">
+                          <span className="text-[9px] font-mono text-black/30">ELYSORA Leveraged Model</span>
+                          <button 
+                            onClick={() => {
+                              setCalcHotelPrice(2000000);
+                              setCalcEquity(600000);
+                              setCalcInterestRate(4.5);
+                              setCalcTermYears(15);
+                              setCalcOperatingCostsPercent(70);
+                              setCalcMinTargetProfit(100000);
+                            }}
+                            className="flex items-center gap-1 text-[11px] font-serif hover:text-[#d4af37] text-black/50 transition-colors"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            {lang === 'zh' ? '重置原始2M融资模板' : lang === 'fr' ? 'Réinitialiser le modèle' : 'Reset default scenario'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Right: Dynamic Outputs */}
+                      {(() => {
+                        const P = calcHotelPrice - calcEquity;
+                        const r = (calcInterestRate / 100) / 12;
+                        const n = calcTermYears * 12;
+                        let monthlyLoanRepayment = 0;
+                        if (P > 0) {
+                          if (r > 0) {
+                            monthlyLoanRepayment = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+                          } else {
+                            monthlyLoanRepayment = P / n;
+                          }
+                        }
+                        const annualDebtService = monthlyLoanRepayment * 12;
+                        const totalBaselineToCover = annualDebtService + calcMinTargetProfit;
+                        const requiredMinCA = totalBaselineToCover / (1 - (calcOperatingCostsPercent / 100));
+
+                        // Comfort levels
+                        const vitalMin = requiredMinCA * 0.95;
+                        const goodMin = requiredMinCA * 1.15;
+                        const excellentMin = requiredMinCA * 1.45;
+
+                        return (
+                          <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
+                            
+                            {/* Big Revenue Goal Widget */}
+                            <div className="bg-[#1e293b] text-white p-6 rounded-3xl border border-slate-700/30 shadow-md relative overflow-hidden flex flex-col justify-between">
+                              <div className="absolute -right-12 -bottom-12 opacity-5 select-none pointer-events-none text-white">
+                                <Calculator className="w-64 h-64" />
+                              </div>
+
+                              <div className="space-y-4">
+                                <span className="bg-[#d4af37]/10 text-[#d4af37] px-3 py-1 rounded-full text-[10px] uppercase font-mono tracking-wider border border-[#d4af37]/20 self-start inline-block">
+                                  {lang === 'zh' ? '测算：年度最低营业额要求' : lang === 'fr' ? 'CHIFFRE D\'AFFAIRES ANNUEL MINIMUM REQUIS' : 'MINIMUM VIABLE ANNUAL TURNOVER TARGET'}
+                                </span>
+
+                                <div className="space-y-1">
+                                  <div className="text-4xl md:text-5xl font-mono text-emerald-400 font-bold tracking-tight">
+                                    {Math.round(requiredMinCA).toLocaleString('fr-FR')} € / an
+                                  </div>
+                                  <p className="text-xs text-white/50 max-w-md">
+                                    {lang === 'zh' ? '以此营业额，您方可在偿还债务及缴交运营费用的同时完全保障设定的最低净利润。' : lang === 'fr' ? 'À ce niveau de CA, vos charges d\'opérations hôtelières sont payées, la dette est annulée à date et votre bénéfice net est sécurisé' : 'Operating charges paid, active mortgages repaid, and your baseline net gain realized'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Breakdown Formulas */}
+                              <div className="grid grid-cols-2 gap-4 pt-6 mt-6 border-t border-white/10 text-xs">
+                                <div>
+                                  <span className="text-white/40 font-serif block">{lang === 'zh' ? '月度还银行贷款金' : lang === 'fr' ? 'Échéance mensuelle' : 'Monthly payment'}</span>
+                                  <span className="font-mono text-white text-base font-semibold">{Math.round(monthlyLoanRepayment).toLocaleString('fr-FR')} € / mois</span>
+                                </div>
+                                <div>
+                                  <span className="text-white/40 font-serif block">{lang === 'zh' ? '年累计偿还金' : lang === 'fr' ? 'Dette annuelle cumulée' : 'Annual mortgage debt'}</span>
+                                  <span className="font-mono text-[#d4af37] text-base font-semibold">{Math.round(annualDebtService).toLocaleString('fr-FR')} € / an</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Investment Benchmark gauges */}
+                            <div className="space-y-3">
+                              <h5 className="text-[10px] uppercase tracking-widest font-mono text-black/55 font-bold mb-1">
+                                {lang === 'zh' ? '2025年度 运营目标区间指标' : lang === 'fr' ? 'INTERVALLES DE SÉCURITÉ DE L\'INVESTISSEUR' : 'INVESTOR CONFIDENCE SCALES'}
+                              </h5>
+
+                              <div className="space-y-2">
+                                
+                                {/* 1. RED */}
+                                <div className="p-3 bg-red-50/50 border border-red-100 rounded-xl flex justify-between items-center">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold text-[10px]">!</div>
+                                    <div>
+                                      <h6 className="font-serif font-semibold text-red-800 text-[11px]">{lang === 'zh' ? '警戒保底线 (高危)' : lang === 'fr' ? 'Minimum Vital (Risqué)' : 'Critical Lower Bound'}</h6>
+                                      <span className="text-[9px] text-black/40 block leading-tight">{lang === 'zh' ? '勉强偿还债务，几乎无任何储备，极度依靠季节性溢价' : lang === 'fr' ? 'Vous remboursez le crédit mais n\'avez presque aucune marge hôtelière' : 'Barely covers operations and debt service'}</span>
+                                    </div>
+                                  </div>
+                                  <span className="font-mono text-xs font-bold text-red-700">{Math.round(vitalMin).toLocaleString('fr-FR')} €</span>
+                                </div>
+
+                                {/* 2. YELLOW */}
+                                <div className="p-3 bg-yellow-50/50 border border-yellow-200 rounded-xl flex justify-between items-center">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 font-bold text-[10px]">~</div>
+                                    <div>
+                                      <h6 className="font-serif font-semibold text-yellow-800 text-[11px]">{lang === 'zh' ? '健康平稳区间 (推荐)' : lang === 'fr' ? 'Bon Niveau (Durable)' : 'Balanced Operating Level'}</h6>
+                                      <span className="text-[9px] text-black/40 block leading-tight">{lang === 'zh' ? '酒店良性运转，现金流平稳，有良性的流动资金安全余地' : lang === 'fr' ? 'Hôtel stable, bonne rentabilité financière et sécurité accrue' : 'Healthy room yields, robust buffer reserves'}</span>
+                                    </div>
+                                  </div>
+                                  <span className="font-mono text-xs font-bold text-yellow-700">{Math.round(goodMin).toLocaleString('fr-FR')} €</span>
+                                </div>
+
+                                {/* 3. GREEN */}
+                                <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl flex justify-between items-center">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-[10px]">★</div>
+                                    <div>
+                                      <h6 className="font-serif font-semibold text-emerald-800 text-[11px]">{lang === 'zh' ? '黄金表现线 (极佳)' : lang === 'fr' ? 'Excellent hôtelier (Très Confortable)' : 'High Performing Cashflow'}</h6>
+                                      <span className="text-[9px] text-black/40 block leading-tight">{lang === 'zh' ? '超强资金流动性，完全有能力进行二次精装修与战略升级' : lang === 'fr' ? 'Excellent cashflow, capacité d\'investir, de rénover et forte revente' : 'Superior ROI, high margin safety, aggressive organic expansions'}</span>
+                                    </div>
+                                  </div>
+                                  <span className="font-mono text-xs font-bold text-emerald-700">{Math.round(excellentMin).toLocaleString('fr-FR')} €</span>
+                                </div>
+
+                              </div>
+                            </div>
+
+                            {/* Advisory Insight */}
+                            <div className="bg-white border border-[#1a1a1a]/5 p-4 rounded-2xl text-[11px] leading-relaxed text-black/60 shadow-sm">
+                              <div className="font-bold font-serif text-brand-dark mb-1 flex items-center gap-1">
+                                <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
+                                {lang === 'zh' ? '📝 智能顾问杠杆评估报告：' : lang === 'fr' ? '📝 Diagnostic de viabilité financière' : '📝 Dynamic Yield Diagnostics:'}
+                              </div>
+                              <p>
+                                {lang === 'zh' 
+                                  ? `设定年利率 ${calcInterestRate}% 借款 ${(calcHotelPrice - calcEquity).toLocaleString('fr-FR')} € (期限 ${calcTermYears} 年) 意味着每年均负债高达 ${Math.round(annualDebtService).toLocaleString('fr-FR')} €。因为设定运营成本率约为 ${calcOperatingCostsPercent}%，意味着可用于给付债务和支撑纯利的毛盈余配额为 ${100 - calcOperatingCostsPercent}%。建议提升每间夜价格 (ADR) 以缓解资产折现率。` 
+                                  : lang === 'fr'
+                                    ? `Avec un crédit de ${(calcHotelPrice - calcEquity).toLocaleString('fr-FR')} € indexé à ${calcInterestRate}% sur ${calcTermYears} ans, votre service annuel de dette exige ${Math.round(annualDebtService).toLocaleString('fr-FR')} €. Votre ratio de charges d'opération fixé à ${calcOperatingCostsPercent}% de votre CA laisse ${100 - calcOperatingCostsPercent}% de marge brute pour couvrir votre banque & votre bénéfice souhaité.`
+                                    : `Leveraging ${(calcHotelPrice - calcEquity).toLocaleString('fr-FR')} € at ${calcInterestRate}% over ${calcTermYears} years results in an yearly debt obligations of ${Math.round(annualDebtService).toLocaleString('fr-FR')} €. Operating at a ${calcOperatingCostsPercent}% cost margin yields a ${100 - calcOperatingCostsPercent}% residual gross retention rate to satisfy structural debt and target gains.`
+                                }
+                              </p>
+                            </div>
+
+                          </div>
+                        );
+                      })()}
+
+                    </div>
+                  ) : (
+                    // L'ÉDUCATION & PRESET STUDY LESSON BOARD
+                    <div className="p-6 md:p-8 space-y-6 flex-1 bg-white">
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[65vh]">
+                        
+                        {/* Infographic visualization pane (Left or Top) */}
+                        <div className="lg:col-span-5 space-y-4 flex flex-col justify-between">
+                          <div>
+                            <h4 className="font-serif font-bold text-[#1a1a1a] text-sm uppercase tracking-wider border-b pb-2 mb-2">
+                              {lang === 'zh' ? '2025年度 投资收益测算 Infographic 图例' : lang === 'fr' ? 'Modèle Infographique de Référence' : 'Static Compliance Infographic Reference'}
+                            </h4>
+                            <p className="text-xs text-black/40 leading-relaxed mb-4">
+                              {lang === 'zh' ? '此为2M欧元酒店并购案模型经典拓扑结构，已注册进入 ELYSORA 本地战略档案。' : lang === 'fr' ? 'Structure classique d\'étude financière homologuée pour un hôtel de 2 millions d\'euros acquis en 2025.' : 'Verified topological blueprint representing real 2025 hotel yield profiles, saved locally.'}
+                            </p>
+                          </div>
+                          
+                          <div className="border border-black/5 rounded-2xl overflow-hidden shadow-md flex-1 bg-[#1a1a1a] relative flex items-center justify-center">
+                            <img 
+                              src="/src/assets/images/hotel_revenue_2025_1780860199149.png" 
+                              alt="Chiffre d'Affaires Minimum" 
+                              className="w-full h-full object-contain max-h-[45vh]"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Interactive Textual Curriculum (Right) */}
+                        <div className="lg:col-span-7 space-y-4 h-full overflow-y-auto pr-3">
+                          <h4 className="font-serif font-bold text-lg text-brand-dark border-b pb-2">
+                            {lang === 'zh' ? '📖 2.0M融资标准课：最低营业额科学测算' : lang === 'fr' ? '📖 Manuel d\'étude : Viabilité & Chiffre d\'Affaires Minimal' : '📖 Operating Manual: Hotel Revenue Demands'}
+                          </h4>
+
+                          <div className="space-y-4 text-xs font-sans text-black/75">
+                            
+                            <div className="bg-[#fcfaf5] border border-black/5 p-4 rounded-xl space-y-1.5 shadow-sm">
+                              <span className="text-[10px] uppercase font-mono tracking-wider text-[#d4af37] font-bold">Étape 1</span>
+                              <h5 className="font-serif font-bold text-sm text-[#1a1a1a]">Structure Capitale</h5>
+                              <p className="leading-relaxed">
+                                Un hôtel de <strong>2 000 000 €</strong> financé avec <strong>600 000 € d'apport personnel</strong> (30%) requiert une enveloppe de financement bancaire de <strong>1 400 000 €</strong>.
+                              </p>
+                            </div>
+
+                            <div className="bg-[#fcfaf5] border border-black/5 p-4 rounded-xl space-y-1.5 shadow-sm">
+                              <span className="text-[10px] uppercase font-mono tracking-wider text-[#d4af37] font-bold">Étape 2</span>
+                              <h5 className="font-serif font-bold text-sm text-[#1a1a1a]">Frais de Crédit Hôtelier 2025</h5>
+                              <p className="leading-relaxed">
+                                Sous les conditions du marché en 2025, un taux fixe à <strong>4,5 % sur 15 ans</strong> génère des échéances de remboursement stables d'environ <strong>10 500 € par mois</strong>.
+                              </p>
+                              <div className="p-2bg-black/5 font-mono text-center text-black/80 rounded bg-black/[0.03] mt-1 font-semibold text-[10.5px]">
+                                Calcul de la charge annuelle : 10 500 € &times; 12 mois ≈ 126 000 € / an
+                              </div>
+                            </div>
+
+                            <div className="bg-[#fcfaf5] border border-black/5 p-4 rounded-xl space-y-1.5 shadow-sm">
+                              <span className="text-[10px] uppercase font-mono tracking-wider text-[#d4af37] font-bold">Étape 3</span>
+                              <h5 className="font-serif font-bold text-sm text-[#1a1a1a]">Charges Réelles en France</h5>
+                              <p className="leading-relaxed">
+                                La réalité opérationnelle d'un hôtel en France exige en moyenne <strong>65% à 75% du chiffre d'affaires</strong> en frais et charges fixes ou variables :
+                              </p>
+                              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono p-2 bg-black/[0.02] rounded">
+                                <div>• Personnel : 30-40%</div>
+                                <div>• Énergie (Électricité, Gaz) : 5-10%</div>
+                                <div>• Commissions OTA (Booking...) : 10-20%</div>
+                                <div>• Entretien & Maintenance : 5-8%</div>
+                                <div>• Taxes + Assurances : 5%</div>
+                              </div>
+                            </div>
+
+                            <div className="bg-[#fcfaf5] border border-black/5 p-4 rounded-xl space-y-1.5 shadow-sm">
+                              <span className="text-[10px] uppercase font-mono tracking-wider text-[#d4af37] font-bold">Étape 4</span>
+                              <h5 className="font-serif font-bold text-sm text-[#1a1a1a]">Objectif Minimal de Solvabilité</h5>
+                              <p className="leading-relaxed">
+                                Un investisseur doit en permanence viser une <strong>marge nette de 10 % à 15 %</strong> pour sécuriser ses activités et ses réserves financières.
+                              </p>
+                            </div>
+
+                            <div className="bg-[#eaf5ec] border border-emerald-100 p-4 rounded-xl space-y-1.5 shadow-sm text-emerald-800">
+                              <span className="text-[10px] uppercase font-mono tracking-wider font-bold">Formule Simplifiée</span>
+                              <h5 className="font-serif font-bold text-sm text-[#064e3b]">Rapports de seuil de rentabilité</h5>
+                              <p className="leading-relaxed">
+                                Pour couvrir les charges hôtelières stabilisées à <strong>70 %</strong> (laissant 30 % disponibles), repayer le prêt à hauteur de <strong>126 000 €</strong> et conserver un bénéfice vital d'exercice de <strong>100 000 €</strong>:
+                              </p>
+                              <div className="bg-white/40 p-2.5 rounded font-mono text-center font-bold text-[#064e3b] mt-1 text-[11px]">
+                                CA &times; 0.30 &ge; 226 000 € &rArr; CA &ge; 226 000 € / 0.30 &approx; 750 000 € / an
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              ) : (
+                // STANDARD IMAGE PREVIEW FOR OTHER GALLERY MGMT ASSETS
+                <div className="overflow-y-auto flex-1 p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-[#fcfaf5]">
+                  <div className="border border-black/5 rounded-2xl overflow-hidden shadow-sm aspect-video bg-neutral-900 relative">
+                    <img 
+                      src={selectedMgmtAsset.imageUrl} 
+                      alt={selectedMgmtAsset.name} 
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <span className="text-[10px] tracking-widest font-mono text-black/45 uppercase">{selectedMgmtAsset.category}</span>
+                      <h4 className="font-serif text-2xl font-bold text-[#1a1a1a] leading-tight">{selectedMgmtAsset.name}</h4>
+                      {selectedMgmtAsset.dimensions && (
+                        <p className="text-xs text-black/40 font-mono mt-1">Format: {selectedMgmtAsset.dimensions}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-[10px] uppercase font-mono tracking-widest text-[#d4af37] block font-bold">Metadata Tags</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedMgmtAsset.tags.map((tag, i) => (
+                          <span key={i} className="text-xs font-serif bg-white border border-black/5 px-2.5 py-1 rounded-xl shadow-sm">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* AI Advisor trigger inside modal */}
+                    <div className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Bot className="w-5 h-5 text-[#d4af37]" />
+                        <h5 className="font-serif font-bold text-sm">Interactive AI Advisor Audit</h5>
+                      </div>
+                      <p className="text-xs text-black/60 leading-relaxed">
+                        Authorize Director AI to load and inspect this operational archive regarding legal compliance, municipal safety parameters, and financial margins.
+                      </p>
+                      <button 
+                        onClick={() => {
+                          setSelectedMgmtAsset(null);
+                          setActiveTab('advisor');
+                          applyPresetPrompt(`Run an extensive risk & compliance audit on the operational repository asset: "${selectedMgmtAsset.name}" categorized under "${selectedMgmtAsset.category}". State safety checklists, corporate risk variables and compliance recommendations.`);
+                        }}
+                        className="w-full py-3 bg-[#1a1a1a] text-[#d4af37] rounded-xl text-xs font-serif font-bold hover:bg-[#d4af37] hover:text-[#1a1a1a] transition-all flex items-center justify-center gap-1.5"
+                      >
+                        Run Compliance Audit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="p-4 bg-white border-t border-black/5 flex justify-end text-xs font-serif">
+                <button 
+                  onClick={() => setSelectedMgmtAsset(null)}
+                  className="px-5 py-2 hover:bg-black/5 text-[#1a1a1a] border border-black/10 rounded-xl font-medium transition-all"
+                >
+                  {lang === 'zh' ? '关闭工作舱' : lang === 'fr' ? 'Fermer l\'étude' : 'Close Workshop'}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* 4. DESIGN FOOTER SECTION */}
         <footer className="py-8 px-10 border-t border-[#1a1a1a]/5 text-center text-black/40 text-[10px] tracking-wider uppercase font-mono flex flex-col md:flex-row justify-between items-center gap-4 bg-white/30 backdrop-blur-md">

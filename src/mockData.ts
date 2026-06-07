@@ -231,3 +231,123 @@ export const INITIAL_TRENDS: IdeaTrend[] = [
     simulatedScenario: 'Scenario Simulator: Enabling passive ventilation through digital twins decreases mechanical chiller loads by 34% during peak summer, maintaining pristine quietude.'
   }
 ];
+
+export const INITIAL_COURSES_MGMT: Course[] = [
+  {
+    id: 'luxury-yield',
+    title: 'Luxury Operations & Yield Management',
+    category: 'Operations',
+    duration: '5 hrs',
+    level: 'Advanced',
+    progress: 40,
+    description: 'Bespoke forecasting models, premium suite pricing metrics, and dynamic staff alignment to deliver seamless guest experiences.',
+    instructor: 'Fabienne Suter',
+    imageUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
+    lessons: [
+      {
+        id: 'lesson-yield-1',
+        title: 'Dynamic Forecasting for Alpine Retreats',
+        duration: '45 mins',
+        content: 'Traditional hotels rely on generic third-party channels to discount premium rates. Elite alpine suites instead utilize dynamic environmental indices to shift pricing premiums. Rates must never fall below brand baseline to protect luxury exclusivity and maximize premium VIP guest configurations.',
+        quiz: {
+          question: 'What is the primary operational risk of standard OTA direct discount algorithms for boutique suites?',
+          options: [
+            'Overbooking wellness spa time allocations',
+            'Sovereign brand equity dilution from public rate-slashing',
+            'Restricting municipal clean energy grid configurations'
+          ],
+          correctAnswer: 1,
+          explanation: 'Public discounting harms elite brand exclusivity and damages long-term customer trust.'
+        }
+      },
+      {
+        id: 'lesson-yield-2',
+        title: 'Roster Synchronicity & Wellness Peaks',
+        duration: '1 hr 15 mins',
+        content: 'Service fatigue occurs when staffing does not match guest cycles. By tracking automated check-in and checkout streams alongside thermal spa bookings, we align our concierge rosters precisely with peaks in biological therapy cycles.',
+        quiz: {
+          question: 'How does roster synchronicity optimize premium service curation?',
+          options: [
+            'It forces staff to be on-call 24 hours continuously',
+            'It aligns service shifts precisely with real-time biometric and wellness therapy spikes',
+            'It automates guest registration so that employees are not required'
+          ],
+          correctAnswer: 1,
+          explanation: 'Coordinating shift schedules with high-demand wellness curves minimizes stress and preserves peak luxury execution.'
+        }
+      }
+    ]
+  },
+  {
+    id: 'sustainable-finance',
+    title: 'Sustainable Luxury Finance & Eco-Compliance',
+    category: 'Finance',
+    duration: '4 hrs',
+    level: 'Master',
+    progress: 15,
+    description: 'Integrating capital expenditures for biophilic systems, natural energy retention audits, and green operational budgets.',
+    instructor: 'Marc-Olivier Rochat',
+    imageUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=600&auto=format&fit=crop',
+    lessons: [
+      {
+        id: 'lesson-finance-1',
+        title: 'Capital Auditing of Deep Biophilic Systems',
+        duration: '1 hr',
+        content: 'Embedding living thermal green walls or physical dolomite structures requires higher initial investment but cuts long-term HVAC cooling and humidity control bills by 45%. We justify this expense through energy retention and customer loyalty coefficients.',
+        quiz: {
+          question: 'What is the primary financial justification for high biophilic capital investments?',
+          options: [
+            'Increasing annual municipal property taxes',
+            'Slashing thermodynamic cooling bills by 45% while boosting premium brand positioning and guest retention',
+            'Lowering room rates to accommodate larger groups'
+          ],
+          correctAnswer: 1,
+          explanation: 'Natural insulation reduces physical building operational overhead and appeals to environmentally conscious luxury customers.'
+        }
+      }
+    ]
+  }
+];
+
+export const INITIAL_GALLERY_MGMT: GalleryAsset[] = [
+  {
+    id: 'gal-mgmt-5',
+    name: 'Chiffre d\'affaires minimum pour un hôtel en 2025',
+    category: 'finance',
+    imageUrl: '/src/assets/images/hotel_revenue_2025_1780860199149.png',
+    dimensions: 'Interactive Financial Model',
+    tags: ['Yield', 'Calculator', 'Acquisition', 'ROI', '2025 Target']
+  },
+  {
+    id: 'gal-mgmt-1',
+    name: 'Q1 Financial Ledger & Budgetary Balance',
+    category: 'finance',
+    imageUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=600&auto=format&fit=crop',
+    dimensions: 'Excel Spreadsheet Model',
+    tags: ['Operations', 'Excel', 'Budget', 'Alpine Suites']
+  },
+  {
+    id: 'gal-mgmt-2',
+    name: 'Staffing Synchronicity & Roster Matrix',
+    category: 'staffing',
+    imageUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=600&auto=format&fit=crop',
+    dimensions: 'Matrix Guide',
+    tags: ['Staffing', 'Scheduler', 'Operations', 'Concurrence']
+  },
+  {
+    id: 'gal-mgmt-3',
+    name: 'Eco-Compliance and Water Reclamation Study',
+    category: 'planning',
+    imageUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=600&auto=format&fit=crop',
+    dimensions: 'Audit PDF',
+    tags: ['Sustainability', 'Greywater', 'Compliance', 'Swiss Alpine']
+  },
+  {
+    id: 'gal-mgmt-4',
+    name: 'Standard Operations Handbook (SOP) for Wellness VIPs',
+    category: 'operations',
+    imageUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?q=80&w=600&auto=format&fit=crop',
+    dimensions: 'SOP Document',
+    tags: ['SOP', 'Operations', 'VIP Service', 'Omotenashi']
+  }
+];
